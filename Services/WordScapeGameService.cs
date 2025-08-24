@@ -671,7 +671,17 @@ namespace WordScapeBlazorWasm.Services
 
         private List<char> CreateCircleLetters(string word)
         {
-            return word.ToCharArray().ToList();
+            var letters = word.ToCharArray().ToList();
+            
+            // Randomize the order of letters in the circle
+            for (int i = letters.Count - 1; i > 0; i--)
+            {
+                int j = _random.Next(i + 1);
+                (letters[i], letters[j]) = (letters[j], letters[i]);
+            }
+            
+            Console.WriteLine($"🔀 Randomized circle letters: {string.Join("", letters)} (from word: {word})");
+            return letters;
         }
 
         public bool IsValidGuess(string guess, PuzzleState puzzle)
