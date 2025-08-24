@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Blazor App",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "dotnet",
+            "args": ["run", "--launch-profile", "https"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development"
+            },
+            "console": "integratedTerminal",
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "Now listening on:\\s+(https://[^\\s]+)",
+                "uriFormat": "%s"
+            }
+        }
+    ]
+}

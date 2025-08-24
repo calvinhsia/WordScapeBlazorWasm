@@ -16,6 +16,7 @@ namespace WordScapeBlazorWasm.Services
 
         public async Task<PuzzleState> GeneratePuzzleAsync(GameSettings settings)
         {
+            Console.WriteLine($"🎮 GeneratePuzzleAsync called - MinLength: {settings.MinWordLength}, MaxLength: {settings.MaxWordLength}");
             await Task.Delay(1); // Make it async for UI responsiveness
             
             // Get a random word of max length
@@ -24,15 +25,21 @@ namespace WordScapeBlazorWasm.Services
             {
                 // Fallback to any word if specific length not found
                 targetWord = "PUZZLE";
+                Console.WriteLine($"⚠️ Using fallback word: {targetWord}");
+            }
+            else
+            {
+                Console.WriteLine($"🎯 Target word selected: {targetWord}");
             }
 
             // Find all subwords
             var possibleWords = FindAllSubwords(targetWord, settings.MinWordLength);
+            Console.WriteLine($"📝 Found {possibleWords.Count} possible words");
             
             // Create letter circle from target word letters
             var circleLetters = CreateCircleLetters(targetWord);
 
-            return new PuzzleState
+            var puzzle = new PuzzleState
             {
                 TargetWord = targetWord,
                 PossibleWords = possibleWords,
@@ -40,6 +47,9 @@ namespace WordScapeBlazorWasm.Services
                 FoundWords = new HashSet<string>(),
                 CurrentGuess = ""
             };
+            
+            Console.WriteLine($"✅ Puzzle generated successfully!");
+            return puzzle;
         }
 
         private string GetRandomWordOfLength(int length)
@@ -164,12 +174,26 @@ namespace WordScapeBlazorWasm.Services
 
         public bool IsValidGuess(string guess, PuzzleState puzzle)
         {
+            Console.WriteLine($"🔍 Validating guess: '{guess}'");
+            
             if (string.IsNullOrEmpty(guess) || guess.Length < 3)
+            {
+                Console.WriteLine($"❌ Invalid - too short or empty");
                 return false;
+            }
 
-            return _dictionary.IsWord(guess) && 
-                   CanFormWordFromLetters(guess, puzzle.TargetWord) &&
-                   puzzle.PossibleWords.Contains(guess);
+            var isInDictionary = _dictionary.IsWord(guess);
+            var canFormWord = CanFormWordFromLetters(guess, puzzle.TargetWord);
+            var isPossible = puzzle.PossibleWords.Contains(guess);
+            
+            Console.WriteLine($"   📚 In dictionary: {isInDictionary}");
+            Console.WriteLine($"   🔤 Can form from letters: {canFormWord}");
+            Console.WriteLine($"   ✅ In possible words: {isPossible}");
+            
+            var result = isInDictionary && canFormWord && isPossible;
+            Console.WriteLine($"   🎯 Final result: {result}");
+            
+            return result;
         }
 
         public bool TryAddWord(string word, PuzzleState puzzle)
