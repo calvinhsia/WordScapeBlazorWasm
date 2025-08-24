@@ -10,7 +10,7 @@ This is a Blazor WebAssembly standalone project that implements the WordScape pu
 - Random word generation with subword placement
 - Circular letter selection interface
 - Drag-and-drop word formation
-- original source: https://github.com/calvinhsia/WordScape
+- use original source for implementation: https://github.com/calvinhsia/WordScape
 
 ## Progress ✅
 - [x] Clarify Project Requirements - WordScape game with Blazor WASM

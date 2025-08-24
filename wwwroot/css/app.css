@@ -150,6 +150,13 @@ a, .btn-link {
     cursor: default;
 }
 
+.grid-cell.clicked-highlight {
+    background: #ffc107 !important;
+    transform: scale(1.15) !important;
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.6);
+    z-index: 10;
+}
+
 @keyframes revealCell {
     0% {
         background: #ffc107;

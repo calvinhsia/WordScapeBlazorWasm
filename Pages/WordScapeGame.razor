@@ -41,17 +41,18 @@
             <div class="crossword-grid">
                 <h3>Crossword Grid</h3>
                 <div class="grid-container" 
-                     style="grid-template-columns: repeat(@_puzzleState.Grid.MaxX, 25px); grid-template-rows: repeat(@_puzzleState.Grid.MaxY, 25px);">
-                    @for (int y = 0; y < _puzzleState.Grid.MaxY; y++)
+                     style="grid-template-columns: repeat(@_puzzleState.LegacyGrid.MaxX, 25px); grid-template-rows: repeat(@_puzzleState.LegacyGrid.MaxY, 25px);">
+                    @for (int y = 0; y < _puzzleState.LegacyGrid.MaxY; y++)
                     {
-                        @for (int x = 0; x < _puzzleState.Grid.MaxX; x++)
+                        @for (int x = 0; x < _puzzleState.LegacyGrid.MaxX; x++)
                         {
-                            var cell = _puzzleState.Grid.Cells.FirstOrDefault(c => c.X == x && c.Y == y);
+                            var cell = _puzzleState.LegacyGrid.Cells.FirstOrDefault(c => c.X == x && c.Y == y);
                             if (cell != null && !cell.IsBlank)
                             {
                                 var localX = x; // capture for lambda
                                 var localY = y; // capture for lambda
-                                <div class="grid-cell @(cell.IsRevealed ? "revealed" : "hidden")" 
+                                var isClicked = _clickedCell.HasValue && _clickedCell.Value.X == x && _clickedCell.Value.Y == y;
+                                <div class="grid-cell @(cell.IsRevealed ? "revealed" : "hidden") @(isClicked ? "clicked-highlight" : "")" 
                                      style="grid-column: @(x + 1); grid-row: @(y + 1);"
                                      @onclick="@(() => OnGridCellClick(localX, localY))">
                                     @if (cell.IsRevealed)
@@ -169,6 +170,8 @@
     private bool _isSelecting = false;
     private string? _temporarilyRevealedWord = null;
     private System.Threading.Timer? _hideTimer;
+    private (int X, int Y)? _clickedCell = null;
+    private System.Threading.Timer? _clickHighlightTimer;
 
     protected override async Task OnInitializedAsync()
     {
@@ -369,13 +372,44 @@
 
     private void OnGridCellClick(int x, int y)
     {
-        if (_puzzleState == null) return;
+        // Highlight the clicked cell
+        _clickedCell = (x, y);
+        
+        // Cancel existing highlight timer
+        _clickHighlightTimer?.Dispose();
+        
+        // Set timer to remove highlight after 300ms
+        _clickHighlightTimer = new System.Threading.Timer(async _ =>
+        {
+            _clickedCell = null;
+            await InvokeAsync(StateHasChanged);
+        }, null, 300, Timeout.Infinite);
+
+        // First, let's just test if the click is working at all
+        _message = $"Clicked cell at ({x}, {y})";
+        StateHasChanged();
+        
+        if (_puzzleState == null) 
+        {
+            _message = "❌ Puzzle state is null";
+            StateHasChanged();
+            return;
+        }
 
         // Find the word at this position that hasn't been found yet
         var wordAtPosition = GameService.GetWordAtPosition(x, y, _puzzleState);
         
-        if (!string.IsNullOrEmpty(wordAtPosition) && !_puzzleState.FoundWords.Contains(wordAtPosition))
+        if (!string.IsNullOrEmpty(wordAtPosition))
         {
+            _message = $"🔍 Revealing word: '{wordAtPosition}' at ({x}, {y})";
+        }
+        else
+        {
+            _message = $"❌ No word found at ({x}, {y})";
+        }
+        
+        if (!string.IsNullOrEmpty(wordAtPosition) && !_puzzleState.FoundWords.Contains(wordAtPosition))
+        {            
             // Hide any previously revealed word
             if (!string.IsNullOrEmpty(_temporarilyRevealedWord))
             {
@@ -407,5 +441,6 @@
     public void Dispose()
     {
         _hideTimer?.Dispose();
+        _clickHighlightTimer?.Dispose();
     }
 }
