@@ -18,13 +18,15 @@ namespace WordScapeBlazorWasm.Services
         public async Task<PuzzleState> GeneratePuzzleAsync(GameSettings settings)
         {
             Console.WriteLine($"🎮 GeneratePuzzleAsync called - MinLength: {settings.MinWordLength}, MaxLength: {settings.MaxWordLength}");
-            await Task.Delay(1); // Make it async for UI responsiveness
+            
+            // Add yield points for WebAssembly single-threaded environment
+            await Task.Yield(); // Yield to allow UI updates
 
             try
             {
                 // For now, use fallback to ensure the app loads quickly
                 // TODO: Re-enable original source after debugging
-                return CreateFallbackPuzzle(settings);
+                return await CreateFallbackPuzzleAsync(settings);
                 
                 // Original source implementation (temporarily disabled)
                 /*
@@ -61,25 +63,34 @@ namespace WordScapeBlazorWasm.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ Error generating puzzle: {ex.Message}");
-                return CreateFallbackPuzzle(settings);
+                return await CreateFallbackPuzzleAsync(settings);
             }
         }
 
-        private PuzzleState CreateFallbackPuzzle(GameSettings settings)
+        private async Task<PuzzleState> CreateFallbackPuzzleAsync(GameSettings settings)
         {
             Console.WriteLine($"🚨 CreateFallbackPuzzle: MaxLength={settings.MaxWordLength}, MinLength={settings.MinWordLength}");
+            
+            // Yield periodically for WebAssembly UI responsiveness
+            await Task.Yield();
             
             var targetWord = GetRandomWordOfLength(settings.MaxWordLength);
             Console.WriteLine($"🎯 Selected target word: '{targetWord}'");
             
+            // Yield before intensive subword finding
+            await Task.Yield();
+            
             var possibleWords = FindAllSubwords(targetWord, settings.MinWordLength);
             Console.WriteLine($"📝 Found {possibleWords.Count} subwords: {string.Join(", ", possibleWords.Take(10))}");
+            
+            // Yield before grid generation
+            await Task.Yield();
             
             var puzzle = new PuzzleState
             {
                 TargetWord = targetWord,
                 PossibleWords = possibleWords,
-                Grid = GenerateCrosswordGrid(possibleWords, targetWord),
+                Grid = await GenerateCrosswordGridAsync(possibleWords, targetWord),
                 CircleLetters = CreateCircleLetters(targetWord)
             };
 
@@ -87,7 +98,7 @@ namespace WordScapeBlazorWasm.Services
             return puzzle;
         }
 
-        private GenGrid GenerateCrosswordGrid(List<string> possibleWords, string targetWord)
+        private async Task<GenGrid> GenerateCrosswordGridAsync(List<string> possibleWords, string targetWord)
         {
             // Create a simple GenGrid for fallback
             var wordContainer = new WordContainer { InitialWord = targetWord, subwords = possibleWords };
@@ -100,6 +111,9 @@ namespace WordScapeBlazorWasm.Services
             }
 
             if (!possibleWords.Any()) return genGrid;
+
+            // Yield before sorting (potentially CPU intensive for large word lists)
+            await Task.Yield();
 
             // Sort words by length (longest first) for better placement
             var sortedWords = possibleWords.OrderByDescending(w => w.Length).ToList();
@@ -114,12 +128,21 @@ namespace WordScapeBlazorWasm.Services
             PlaceWordHorizontally(genGrid, firstWord, startX, startY);
             placedWords.Add(firstWord);
 
+            // Yield before intensive word placement loop
+            await Task.Yield();
+
             // Try to place additional words by finding intersections
             int attempts = 0;
             foreach (var word in sortedWords.Skip(1))
             {
                 attempts++;
                 if (placedWords.Count >= 8) break; // Limit to avoid overcrowding
+                
+                // Yield every few attempts to prevent UI blocking
+                if (attempts % 3 == 0)
+                {
+                    await Task.Yield();
+                }
                 
                 // Only show detailed debugging for first few attempts to avoid spam
                 bool showDetailedDebug = attempts <= 3;
