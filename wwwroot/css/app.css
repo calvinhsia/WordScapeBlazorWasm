@@ -129,17 +129,25 @@ a, .btn-link {
     font-family: Arial, sans-serif;
     transition: all 0.3s ease;
     border-radius: 2px;
+    cursor: pointer;
 }
 
 .grid-cell.hidden {
     background: #6c757d;
     color: transparent;
+    cursor: pointer;
+}
+
+.grid-cell.hidden:hover {
+    background: #5a6268;
+    transform: scale(1.05);
 }
 
 .grid-cell.revealed {
     background: #007bff;
     color: white;
     animation: revealCell 0.5s ease;
+    cursor: default;
 }
 
 @keyframes revealCell {
@@ -149,6 +157,28 @@ a, .btn-link {
     }
     100% {
         background: #007bff;
+        transform: scale(1);
+    }
+}
+
+@keyframes hintReveal {
+    0% {
+        background: #6c757d;
+        color: transparent;
+    }
+    10% {
+        background: #ffc107;
+        color: white;
+        transform: scale(1.1);
+    }
+    90% {
+        background: #ffc107;
+        color: white;
+        transform: scale(1.1);
+    }
+    100% {
+        background: #6c757d;
+        color: transparent;
         transform: scale(1);
     }
 }

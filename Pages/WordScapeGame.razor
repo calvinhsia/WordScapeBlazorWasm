@@ -4,6 +4,7 @@
 @inject WordScapeGameService GameService
 @inject GameSettingsService SettingsService
 @inject IJSRuntime JSRuntime
+@implements IDisposable
 
 <div class="wordscape-container">
     <div class="game-header">
@@ -48,8 +49,11 @@
                             var cell = _puzzleState.Grid.Cells.FirstOrDefault(c => c.X == x && c.Y == y);
                             if (cell != null && !cell.IsBlank)
                             {
+                                var localX = x; // capture for lambda
+                                var localY = y; // capture for lambda
                                 <div class="grid-cell @(cell.IsRevealed ? "revealed" : "hidden")" 
-                                     style="grid-column: @(x + 1); grid-row: @(y + 1);">
+                                     style="grid-column: @(x + 1); grid-row: @(y + 1);"
+                                     @onclick="@(() => OnGridCellClick(localX, localY))">
                                     @if (cell.IsRevealed)
                                     {
                                         @cell.Letter.ToString().ToUpper()
@@ -163,6 +167,8 @@
     private List<CircleLetter> _circleLetters = new();
     private List<int> _selectedLetters = new();
     private bool _isSelecting = false;
+    private string? _temporarilyRevealedWord = null;
+    private System.Threading.Timer? _hideTimer;
 
     protected override async Task OnInitializedAsync()
     {
@@ -177,6 +183,9 @@
         _puzzleState = null;
         _selectedLetters.Clear();
         _currentWord = "";
+        _temporarilyRevealedWord = null;
+        _hideTimer?.Dispose();
+        _hideTimer = null;
         StateHasChanged();
 
         try
@@ -356,5 +365,47 @@
             _message = "";
             InvokeAsync(StateHasChanged);
         });
+    }
+
+    private void OnGridCellClick(int x, int y)
+    {
+        if (_puzzleState == null) return;
+
+        // Find the word at this position that hasn't been found yet
+        var wordAtPosition = GameService.GetWordAtPosition(x, y, _puzzleState);
+        
+        if (!string.IsNullOrEmpty(wordAtPosition) && !_puzzleState.FoundWords.Contains(wordAtPosition))
+        {
+            // Hide any previously revealed word
+            if (!string.IsNullOrEmpty(_temporarilyRevealedWord))
+            {
+                GameService.HideWord(_temporarilyRevealedWord, _puzzleState);
+            }
+            
+            // Reveal the new word
+            GameService.TemporarilyRevealWord(wordAtPosition, _puzzleState);
+            _temporarilyRevealedWord = wordAtPosition;
+            
+            // Cancel existing timer
+            _hideTimer?.Dispose();
+            
+            // Set timer to hide the word after 2 seconds
+            _hideTimer = new System.Threading.Timer(async _ =>
+            {
+                if (_temporarilyRevealedWord == wordAtPosition)
+                {
+                    GameService.HideWord(_temporarilyRevealedWord, _puzzleState);
+                    _temporarilyRevealedWord = null;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }, null, 2000, Timeout.Infinite);
+            
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        _hideTimer?.Dispose();
     }
 }

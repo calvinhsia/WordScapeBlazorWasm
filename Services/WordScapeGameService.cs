@@ -465,6 +465,102 @@ namespace WordScapeBlazorWasm.Services
 
             return WordStatus.IsNotInGrid;
         }
+
+        public string? GetWordAtPosition(int x, int y, PuzzleState puzzle)
+        {
+            // Find the word that contains this position and hasn't been found yet
+            foreach (var kvp in puzzle.Grid.PlacedWords)
+            {
+                var word = kvp.Key;
+                var placement = kvp.Value;
+                
+                // Skip already found words
+                if (puzzle.FoundWords.Contains(word)) continue;
+                
+                // Check if position is within this word
+                bool isWithinWord = false;
+                if (placement.IsHorizontal)
+                {
+                    if (y == placement.StartY && x >= placement.StartX && x < placement.StartX + word.Length)
+                        isWithinWord = true;
+                }
+                else
+                {
+                    if (x == placement.StartX && y >= placement.StartY && y < placement.StartY + word.Length)
+                        isWithinWord = true;
+                }
+                
+                if (isWithinWord)
+                {
+                    return word;
+                }
+            }
+            
+            return null;
+        }
+
+        public void TemporarilyRevealWord(string word, PuzzleState puzzle)
+        {
+            if (puzzle.Grid.PlacedWords.TryGetValue(word, out var placement))
+            {
+                // Reveal all letters of this word temporarily
+                for (int i = 0; i < word.Length; i++)
+                {
+                    int x = placement.IsHorizontal ? placement.StartX + i : placement.StartX;
+                    int y = placement.IsHorizontal ? placement.StartY : placement.StartY + i;
+                    
+                    var cell = puzzle.Grid.Cells.FirstOrDefault(c => c.X == x && c.Y == y);
+                    if (cell != null)
+                    {
+                        cell.IsRevealed = true;
+                    }
+                }
+            }
+        }
+
+        public void HideWord(string word, PuzzleState puzzle)
+        {
+            if (puzzle.Grid.PlacedWords.TryGetValue(word, out var placement))
+            {
+                // Hide letters that are not part of already found words
+                for (int i = 0; i < word.Length; i++)
+                {
+                    int x = placement.IsHorizontal ? placement.StartX + i : placement.StartX;
+                    int y = placement.IsHorizontal ? placement.StartY : placement.StartY + i;
+                    
+                    var cell = puzzle.Grid.Cells.FirstOrDefault(c => c.X == x && c.Y == y);
+                    if (cell != null)
+                    {
+                        // Check if this cell is part of any found word
+                        bool isPartOfFoundWord = false;
+                        foreach (var foundWord in puzzle.FoundWords)
+                        {
+                            if (puzzle.Grid.PlacedWords.TryGetValue(foundWord, out var foundPlacement))
+                            {
+                                for (int j = 0; j < foundWord.Length; j++)
+                                {
+                                    int foundX = foundPlacement.IsHorizontal ? foundPlacement.StartX + j : foundPlacement.StartX;
+                                    int foundY = foundPlacement.IsHorizontal ? foundPlacement.StartY : foundPlacement.StartY + j;
+                                    
+                                    if (foundX == x && foundY == y)
+                                    {
+                                        isPartOfFoundWord = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (isPartOfFoundWord) break;
+                        }
+                        
+                        // Only hide if not part of a found word
+                        if (!isPartOfFoundWord)
+                        {
+                            cell.IsRevealed = false;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public class PlacedLetter
