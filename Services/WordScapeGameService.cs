@@ -39,13 +39,17 @@ namespace WordScapeBlazorWasm.Services
             // Create letter circle from target word letters
             var circleLetters = CreateCircleLetters(targetWord);
 
+            // Generate crossword grid
+            var grid = GenerateCrosswordGrid(possibleWords, targetWord);
+
             var puzzle = new PuzzleState
             {
                 TargetWord = targetWord,
                 PossibleWords = possibleWords,
                 CircleLetters = circleLetters,
                 FoundWords = new HashSet<string>(),
-                CurrentGuess = ""
+                CurrentGuess = "",
+                Grid = grid
             };
             
             Console.WriteLine($"✅ Puzzle generated successfully!");
@@ -201,9 +205,273 @@ namespace WordScapeBlazorWasm.Services
             if (IsValidGuess(word, puzzle) && !puzzle.FoundWords.Contains(word))
             {
                 puzzle.FoundWords.Add(word);
+                ShowWordInGrid(word, puzzle);
                 return true;
             }
             return false;
         }
+
+        private CrosswordGrid GenerateCrosswordGrid(List<string> possibleWords, string targetWord)
+        {
+            var grid = new CrosswordGrid();
+            const int maxSize = 15;
+            
+            // Initialize grid with blanks
+            grid.MaxX = maxSize;
+            grid.MaxY = maxSize;
+            grid.Letters = new char[maxSize, maxSize];
+            
+            for (int y = 0; y < maxSize; y++)
+            {
+                for (int x = 0; x < maxSize; x++)
+                {
+                    grid.Letters[x, y] = CrosswordGrid.Blank;
+                }
+            }
+
+            var wordsToPlace = possibleWords.OrderByDescending(w => w.Length).Take(Math.Min(8, possibleWords.Count)).ToList();
+            var placedLetters = new List<PlacedLetter>();
+
+            // Place first word in the center
+            if (wordsToPlace.Any())
+            {
+                var firstWord = wordsToPlace[0];
+                var isHorizontal = _random.NextDouble() < 0.5;
+                int startX, startY;
+
+                if (isHorizontal)
+                {
+                    startY = maxSize / 2;
+                    startX = (maxSize - firstWord.Length) / 2;
+                }
+                else
+                {
+                    startX = maxSize / 2;
+                    startY = (maxSize - firstWord.Length) / 2;
+                }
+
+                PlaceWordInGrid(grid, firstWord, startX, startY, isHorizontal, placedLetters);
+                wordsToPlace.RemoveAt(0);
+            }
+
+            // Try to place remaining words by intersecting with existing letters
+            foreach (var word in wordsToPlace.Take(6)) // Limit to 6 additional words
+            {
+                TryPlaceWordByIntersection(grid, word, placedLetters);
+            }
+
+            // Create cells list for UI
+            CreateGridCells(grid);
+
+            return grid;
+        }
+
+        private void PlaceWordInGrid(CrosswordGrid grid, string word, int startX, int startY, bool isHorizontal, List<PlacedLetter> placedLetters)
+        {
+            grid.PlacedWords[word] = new WordPlacement
+            {
+                StartX = startX,
+                StartY = startY,
+                IsHorizontal = isHorizontal,
+                Word = word
+            };
+
+            for (int i = 0; i < word.Length; i++)
+            {
+                int x = isHorizontal ? startX + i : startX;
+                int y = isHorizontal ? startY : startY + i;
+                
+                grid.Letters[x, y] = word[i];
+                placedLetters.Add(new PlacedLetter
+                {
+                    X = x,
+                    Y = y,
+                    Letter = word[i],
+                    IsHorizontal = isHorizontal
+                });
+            }
+        }
+
+        private bool TryPlaceWordByIntersection(CrosswordGrid grid, string word, List<PlacedLetter> placedLetters)
+        {
+            // Try to find a letter in the word that matches a placed letter
+            foreach (var placedLetter in placedLetters.OrderBy(x => _random.Next()))
+            {
+                for (int i = 0; i < word.Length; i++)
+                {
+                    if (word[i] == placedLetter.Letter)
+                    {
+                        // Try to place word perpendicular to the existing word
+                        bool newWordIsHorizontal = !placedLetter.IsHorizontal;
+                        int startX, startY;
+
+                        if (newWordIsHorizontal)
+                        {
+                            startX = placedLetter.X - i;
+                            startY = placedLetter.Y;
+                        }
+                        else
+                        {
+                            startX = placedLetter.X;
+                            startY = placedLetter.Y - i;
+                        }
+
+                        // Check if the word fits and doesn't conflict
+                        if (CanPlaceWord(grid, word, startX, startY, newWordIsHorizontal))
+                        {
+                            PlaceWordInGrid(grid, word, startX, startY, newWordIsHorizontal, placedLetters);
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private bool CanPlaceWord(CrosswordGrid grid, string word, int startX, int startY, bool isHorizontal)
+        {
+            // Check bounds
+            if (startX < 0 || startY < 0) return false;
+            if (isHorizontal && startX + word.Length > grid.MaxX) return false;
+            if (!isHorizontal && startY + word.Length > grid.MaxY) return false;
+
+            // Check if positions are available or match
+            for (int i = 0; i < word.Length; i++)
+            {
+                int x = isHorizontal ? startX + i : startX;
+                int y = isHorizontal ? startY : startY + i;
+
+                char existingLetter = grid.Letters[x, y];
+                if (existingLetter != CrosswordGrid.Blank && existingLetter != word[i])
+                {
+                    return false;
+                }
+
+                // Check adjacent cells don't have conflicting letters (simplified British crossword rule)
+                if (existingLetter == CrosswordGrid.Blank)
+                {
+                    if (isHorizontal)
+                    {
+                        // Check above and below
+                        if (y > 0 && grid.Letters[x, y - 1] != CrosswordGrid.Blank) return false;
+                        if (y < grid.MaxY - 1 && grid.Letters[x, y + 1] != CrosswordGrid.Blank) return false;
+                    }
+                    else
+                    {
+                        // Check left and right
+                        if (x > 0 && grid.Letters[x - 1, y] != CrosswordGrid.Blank) return false;
+                        if (x < grid.MaxX - 1 && grid.Letters[x + 1, y] != CrosswordGrid.Blank) return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        private void CreateGridCells(CrosswordGrid grid)
+        {
+            // Find the actual bounds of placed letters
+            int minX = grid.MaxX, maxX = -1, minY = grid.MaxY, maxY = -1;
+            
+            for (int y = 0; y < grid.MaxY; y++)
+            {
+                for (int x = 0; x < grid.MaxX; x++)
+                {
+                    if (grid.Letters[x, y] != CrosswordGrid.Blank)
+                    {
+                        minX = Math.Min(minX, x);
+                        maxX = Math.Max(maxX, x);
+                        minY = Math.Min(minY, y);
+                        maxY = Math.Max(maxY, y);
+                    }
+                }
+            }
+
+            // If we found content, resize the grid to fit
+            if (maxX >= 0)
+            {
+                // Add some padding
+                minX = Math.Max(0, minX - 1);
+                minY = Math.Max(0, minY - 1);
+                maxX = Math.Min(grid.MaxX - 1, maxX + 1);
+                maxY = Math.Min(grid.MaxY - 1, maxY + 1);
+
+                var newWidth = maxX - minX + 1;
+                var newHeight = maxY - minY + 1;
+
+                // Create new smaller grid
+                var newLetters = new char[newWidth, newHeight];
+                for (int y = 0; y < newHeight; y++)
+                {
+                    for (int x = 0; x < newWidth; x++)
+                    {
+                        newLetters[x, y] = grid.Letters[minX + x, minY + y];
+                    }
+                }
+
+                // Update grid properties
+                grid.Letters = newLetters;
+                grid.MaxX = newWidth;
+                grid.MaxY = newHeight;
+
+                // Update placement coordinates
+                foreach (var placement in grid.PlacedWords.Values)
+                {
+                    placement.StartX -= minX;
+                    placement.StartY -= minY;
+                }
+            }
+
+            // Create cells for the optimized grid
+            grid.Cells.Clear();
+            for (int y = 0; y < grid.MaxY; y++)
+            {
+                for (int x = 0; x < grid.MaxX; x++)
+                {
+                    grid.Cells.Add(new GridCell
+                    {
+                        X = x,
+                        Y = y,
+                        Letter = grid.Letters[x, y],
+                        IsRevealed = false
+                    });
+                }
+            }
+        }
+
+        public WordStatus ShowWordInGrid(string word, PuzzleState puzzle)
+        {
+            if (puzzle.Grid.PlacedWords.TryGetValue(word, out var placement))
+            {
+                bool wasAlreadyRevealed = true;
+                
+                // Check if any letters need to be revealed
+                for (int i = 0; i < word.Length; i++)
+                {
+                    int x = placement.IsHorizontal ? placement.StartX + i : placement.StartX;
+                    int y = placement.IsHorizontal ? placement.StartY : placement.StartY + i;
+                    
+                    var cell = puzzle.Grid.Cells.FirstOrDefault(c => c.X == x && c.Y == y);
+                    if (cell != null && !cell.IsRevealed)
+                    {
+                        wasAlreadyRevealed = false;
+                        cell.IsRevealed = true;
+                    }
+                }
+
+                return wasAlreadyRevealed ? WordStatus.IsAlreadyInGrid : WordStatus.IsShownInGridForFirstTime;
+            }
+
+            return WordStatus.IsNotInGrid;
+        }
+    }
+
+    public class PlacedLetter
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+        public char Letter { get; set; }
+        public bool IsHorizontal { get; set; }
     }
 }

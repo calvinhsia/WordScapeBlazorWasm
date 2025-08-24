@@ -103,6 +103,56 @@ a, .btn-link {
     font-size: 14px;
 }
 
+/* Crossword Grid Styles */
+.crossword-grid {
+    text-align: center;
+    margin: 20px 0;
+}
+
+.grid-container {
+    display: inline-grid;
+    gap: 1px;
+    background: #ccc;
+    padding: 1px;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+.grid-cell {
+    background: #007bff;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 12px;
+    font-family: Arial, sans-serif;
+    transition: all 0.3s ease;
+    border-radius: 2px;
+}
+
+.grid-cell.hidden {
+    background: #6c757d;
+    color: transparent;
+}
+
+.grid-cell.revealed {
+    background: #007bff;
+    color: white;
+    animation: revealCell 0.5s ease;
+}
+
+@keyframes revealCell {
+    0% {
+        background: #ffc107;
+        transform: scale(1.2);
+    }
+    100% {
+        background: #007bff;
+        transform: scale(1);
+    }
+}
+
 .letter-wheel {
     user-select: none;
     cursor: pointer;

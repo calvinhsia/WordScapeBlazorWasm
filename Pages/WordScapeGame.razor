@@ -36,6 +36,31 @@
     @if (_puzzleState is not null)
     {
         <div class="game-area">
+            <!-- Crossword Grid -->
+            <div class="crossword-grid">
+                <h3>Crossword Grid</h3>
+                <div class="grid-container" 
+                     style="grid-template-columns: repeat(@_puzzleState.Grid.MaxX, 25px); grid-template-rows: repeat(@_puzzleState.Grid.MaxY, 25px);">
+                    @for (int y = 0; y < _puzzleState.Grid.MaxY; y++)
+                    {
+                        @for (int x = 0; x < _puzzleState.Grid.MaxX; x++)
+                        {
+                            var cell = _puzzleState.Grid.Cells.FirstOrDefault(c => c.X == x && c.Y == y);
+                            if (cell != null && !cell.IsBlank)
+                            {
+                                <div class="grid-cell @(cell.IsRevealed ? "revealed" : "hidden")" 
+                                     style="grid-column: @(x + 1); grid-row: @(y + 1);">
+                                    @if (cell.IsRevealed)
+                                    {
+                                        @cell.Letter.ToString().ToUpper()
+                                    }
+                                </div>
+                            }
+                        }
+                    }
+                </div>
+            </div>
+
             <!-- Found Words List -->
             <div class="found-words">
                 <h3>Found Words</h3>
@@ -72,7 +97,10 @@
                         <g class="letter-container @(isSelected ? "selected" : "")"
                            @onmousedown="@(() => StartSelection(index))"
                            @onmouseover="@(() => ContinueSelection(index))"
-                           @onmouseup="@(() => EndSelection())">
+                           @onmouseup="@(() => EndSelection())"
+                           @ontouchstart="@(() => StartSelection(index))"
+                           @ontouchmove="@((e) => HandleTouchMove(e, index))"
+                           @ontouchend="@(() => EndSelection())">>
                             
                             <circle cx="@letter.X" 
                                     cy="@letter.Y" 
@@ -99,7 +127,6 @@
             <div class="current-word">
                 <h3>Current Word: @_currentWord</h3>
                 <button class="btn btn-warning" @onclick="ClearSelection">Clear</button>
-                <button class="btn btn-success" @onclick="SubmitWord" disabled="@(string.IsNullOrEmpty(_currentWord))">Submit</button>
             </div>
 
             @if (!string.IsNullOrEmpty(_message))
@@ -235,6 +262,21 @@
     private void EndSelection()
     {
         _isSelecting = false;
+        
+        // Automatically submit the word when selection ends
+        if (!string.IsNullOrEmpty(_currentWord))
+        {
+            SubmitWord();
+        }
+    }
+
+    private void HandleTouchMove(TouchEventArgs e, int index)
+    {
+        if (!_isSelecting) return;
+        
+        // For touch events, we need to determine which letter the touch is over
+        // This is a simplified approach - in a production app you might want more precise touch handling
+        ContinueSelection(index);
     }
 
     private void UpdateCurrentWord()
