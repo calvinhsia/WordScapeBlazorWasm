@@ -1,0 +1,36 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager Navigation
+
+<PageTitle>WordScape - Word Puzzle Game</PageTitle>
+
+<div class="hero-section">
+    <h1>Welcome to WordScape!</h1>
+    <p>A challenging word puzzle game where you form words from a circle of letters.</p>
+    <button class="btn btn-primary btn-lg" @onclick="StartGame">Play WordScape</button>
+</div>
+
+<div class="features">
+    <h2>How to Play</h2>
+    <div class="feature-list">
+        <div class="feature">
+            <h3>🎯 Find Words</h3>
+            <p>Drag around the circle to form words using the available letters.</p>
+        </div>
+        <div class="feature">
+            <h3>🎮 Challenge Yourself</h3>
+            <p>Find all possible words to complete each puzzle.</p>
+        </div>
+        <div class="feature">
+            <h3>⚙️ Customize</h3>
+            <p>Adjust word length settings to match your skill level.</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private void StartGame()
+    {
+        Navigation.NavigateTo("/wordscape");
+    }
+}

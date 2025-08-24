@@ -1,0 +1,318 @@
+@page "/wordscape"
+@using WordScapeBlazorWasm.Models
+@using WordScapeBlazorWasm.Services
+@inject WordScapeGameService GameService
+@inject GameSettingsService SettingsService
+@inject IJSRuntime JSRuntime
+
+<div class="wordscape-container">
+    <div class="game-header">
+        <h1>WordScape</h1>
+        <div class="game-stats">
+            <span>Score: @(_puzzleState?.Score ?? 0)</span>
+            <span>Words: @(_puzzleState?.FoundWords.Count ?? 0) / @(_puzzleState?.PossibleWords.Count ?? 0)</span>
+        </div>
+        <button class="btn btn-secondary" @onclick="ToggleSettings">Settings</button>
+        <button class="btn btn-primary" @onclick="NewGame">New Game</button>
+    </div>
+
+    @if (_showSettings)
+    {
+        <div class="settings-panel">
+            <h3>Settings</h3>
+            <div class="form-group">
+                <label for="minLength">Min Word Length:</label>
+                <input id="minLength" type="number" @bind="_settings.MinWordLength" min="3" max="8" class="form-control" />
+            </div>
+            <div class="form-group">
+                <label for="maxLength">Max Word Length:</label>
+                <input id="maxLength" type="number" @bind="_settings.MaxWordLength" min="4" max="10" class="form-control" />
+            </div>
+            <button class="btn btn-success" @onclick="SaveSettings">Save Settings</button>
+            <button class="btn btn-secondary" @onclick="ToggleSettings">Cancel</button>
+        </div>
+    }
+
+    @if (_puzzleState is not null)
+    {
+        <div class="game-area">
+            <!-- Found Words List -->
+            <div class="found-words">
+                <h3>Found Words</h3>
+                <div class="words-grid">
+                    @foreach (var word in _puzzleState.FoundWords.OrderBy(w => w.Length).ThenBy(w => w))
+                    {
+                        <div class="found-word">@word</div>
+                    }
+                </div>
+            </div>
+
+            <!-- Circle Letters -->
+            <div class="letter-wheel">
+                <svg width="300" height="300" viewBox="0 0 300 300">
+                    <!-- Circle border -->
+                    <circle cx="150" cy="150" r="120" fill="none" stroke="#ccc" stroke-width="2" />
+                    
+                    <!-- Connection line -->
+                    @if (_selectedLetters.Any())
+                    {
+                        <polyline points="@GetPolylinePoints()" 
+                                  fill="none" 
+                                  stroke="#007bff" 
+                                  stroke-width="3" />
+                    }
+
+                    <!-- Letters -->
+                    @for (int i = 0; i < _circleLetters.Count; i++)
+                    {
+                        var letter = _circleLetters[i];
+                        var isSelected = _selectedLetters.Contains(i);
+                        var index = i; // capture for lambda
+                        
+                        <g class="letter-container @(isSelected ? "selected" : "")"
+                           @onmousedown="@(() => StartSelection(index))"
+                           @onmouseover="@(() => ContinueSelection(index))"
+                           @onmouseup="@(() => EndSelection())">
+                            
+                            <circle cx="@letter.X" 
+                                    cy="@letter.Y" 
+                                    r="25" 
+                                    fill="@(isSelected ? "#007bff" : "#f8f9fa")" 
+                                    stroke="@(isSelected ? "#0056b3" : "#dee2e6")" 
+                                    stroke-width="2" />
+                            
+                            <text x="@letter.X" 
+                                  y="@(letter.Y + 5)" 
+                                  text-anchor="middle" 
+                                  font-family="Arial, sans-serif" 
+                                  font-size="20" 
+                                  font-weight="bold" 
+                                  fill="@(isSelected ? "white" : "black")">
+                                @letter.Letter
+                            </text>
+                        </g>
+                    }
+                </svg>
+            </div>
+
+            <!-- Current Word -->
+            <div class="current-word">
+                <h3>Current Word: @_currentWord</h3>
+                <button class="btn btn-warning" @onclick="ClearSelection">Clear</button>
+                <button class="btn btn-success" @onclick="SubmitWord" disabled="@(string.IsNullOrEmpty(_currentWord))">Submit</button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_message))
+            {
+                <div class="alert alert-info">@_message</div>
+            }
+        </div>
+
+        @if (_puzzleState.IsComplete)
+        {
+            <div class="alert alert-success">
+                <h3>Congratulations!</h3>
+                <p>You found all @_puzzleState.PossibleWords.Count words!</p>
+                <p>Final Score: @_puzzleState.Score</p>
+            </div>
+        }
+    }
+    else if (_isLoading)
+    {
+        <div class="loading">
+            <p>Generating puzzle...</p>
+        </div>
+    }
+</div>
+
+@code {
+    private PuzzleState? _puzzleState;
+    private GameSettings _settings = new();
+    private bool _showSettings = false;
+    private bool _isLoading = false;
+    private string _message = "";
+    private string _currentWord = "";
+    
+    private List<CircleLetter> _circleLetters = new();
+    private List<int> _selectedLetters = new();
+    private bool _isSelecting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _settings = await SettingsService.LoadSettingsAsync();
+        await NewGame();
+    }
+
+    private async Task NewGame()
+    {
+        _isLoading = true;
+        _message = "";
+        _puzzleState = null;
+        _selectedLetters.Clear();
+        _currentWord = "";
+        StateHasChanged();
+
+        try
+        {
+            _puzzleState = await GameService.GeneratePuzzleAsync(_settings);
+            
+            if (_puzzleState != null)
+            {
+                CreateCircleLetters();
+                _message = $"New puzzle created! Target: {_puzzleState.TargetWord}, Words to find: {_puzzleState.PossibleWords.Count}";
+                
+                // Clear message after 3 seconds
+                _ = Task.Delay(3000).ContinueWith(_ => 
+                {
+                    if (_message.Contains("New puzzle created"))
+                        _message = "";
+                    InvokeAsync(StateHasChanged);
+                });
+            }
+            else
+            {
+                _message = "Failed to generate puzzle - puzzle state is null";
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"Error generating puzzle: {ex.Message}";
+            // Log more details for debugging
+            Console.WriteLine($"NewGame Error: {ex}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CreateCircleLetters()
+    {
+        if (_puzzleState is null) return;
+
+        _circleLetters.Clear();
+        var letters = _puzzleState.CircleLetters;
+        var radius = 100.0;
+        var centerX = 150.0;
+        var centerY = 150.0;
+
+        for (int i = 0; i < letters.Count; i++)
+        {
+            var angle = (2 * Math.PI * i) / letters.Count - (Math.PI / 2); // Start at top
+            var x = centerX + radius * Math.Cos(angle);
+            var y = centerY + radius * Math.Sin(angle);
+
+            _circleLetters.Add(new CircleLetter
+            {
+                Letter = letters[i],
+                X = x,
+                Y = y,
+                Index = i
+            });
+        }
+    }
+
+    private void StartSelection(int index)
+    {
+        _selectedLetters.Clear();
+        _selectedLetters.Add(index);
+        _isSelecting = true;
+        UpdateCurrentWord();
+    }
+
+    private void ContinueSelection(int index)
+    {
+        if (!_isSelecting) return;
+        
+        if (!_selectedLetters.Contains(index))
+        {
+            _selectedLetters.Add(index);
+            UpdateCurrentWord();
+        }
+    }
+
+    private void EndSelection()
+    {
+        _isSelecting = false;
+    }
+
+    private void UpdateCurrentWord()
+    {
+        _currentWord = string.Join("", _selectedLetters.Select(i => _circleLetters[i].Letter));
+    }
+
+    private void ClearSelection()
+    {
+        _selectedLetters.Clear();
+        _currentWord = "";
+        _isSelecting = false;
+    }
+
+    private void SubmitWord()
+    {
+        if (string.IsNullOrEmpty(_currentWord) || _puzzleState is null) return;
+
+        if (GameService.TryAddWord(_currentWord, _puzzleState))
+        {
+            _message = $"Great! You found '{_currentWord}'!";
+        }
+        else if (_puzzleState.FoundWords.Contains(_currentWord))
+        {
+            _message = $"You already found '{_currentWord}'.";
+        }
+        else if (!GameService.IsValidGuess(_currentWord, _puzzleState))
+        {
+            _message = $"'{_currentWord}' is not a valid word or cannot be formed from the available letters.";
+        }
+        else
+        {
+            _message = $"'{_currentWord}' is not one of the target words for this puzzle.";
+        }
+
+        ClearSelection();
+        StateHasChanged();
+
+        // Clear message after 3 seconds
+        _ = Task.Delay(3000).ContinueWith(_ => 
+        {
+            _message = "";
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private string GetPolylinePoints()
+    {
+        if (!_selectedLetters.Any()) return "";
+        
+        var points = _selectedLetters.Select(i => $"{_circleLetters[i].X},{_circleLetters[i].Y}");
+        return string.Join(" ", points);
+    }
+
+    private void ToggleSettings()
+    {
+        _showSettings = !_showSettings;
+    }
+
+    private async Task SaveSettings()
+    {
+        // Validate settings
+        if (_settings.MinWordLength >= _settings.MaxWordLength)
+        {
+            _settings.MinWordLength = _settings.MaxWordLength - 1;
+        }
+
+        if (_settings.MinWordLength < 3) _settings.MinWordLength = 3;
+        if (_settings.MaxWordLength > 10) _settings.MaxWordLength = 10;
+
+        await SettingsService.SaveSettingsAsync(_settings);
+        _showSettings = false;
+        _message = "Settings saved! Click 'New Game' to apply changes.";
+        
+        _ = Task.Delay(3000).ContinueWith(_ => 
+        {
+            _message = "";
+            InvokeAsync(StateHasChanged);
+        });
+    }
+}
