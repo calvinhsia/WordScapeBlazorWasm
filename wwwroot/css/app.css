@@ -29,19 +29,25 @@ a, .btn-link {
 }
 
 /* WordScape Game Styles */
+body {
+    touch-action: auto; /* Allow normal page scrolling */
+}
+
 .wordscape-container {
-    max-width: 800px;
+    max-width: 100%;
     margin: 0 auto;
-    padding: 20px;
+    padding: 10px;
     font-family: Arial, sans-serif;
+    touch-action: auto; /* Allow normal scrolling everywhere */
 }
 
 .game-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 5px;
     flex-wrap: wrap;
+    gap: 5px;
 }
 
 .game-stats {
@@ -81,6 +87,133 @@ a, .btn-link {
     gap: 20px;
 }
 
+/* New layout styles */
+.game-layout {
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    gap: 15px;
+    margin-top: 0px;
+    min-height: 500px;
+}
+
+.left-sidebar, .right-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.center-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    margin-top: -20px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 5px;
+    margin-bottom: 5px;
+}
+
+.stat-item strong {
+    display: block;
+    color: #495057;
+    font-size: 12px;
+    margin-bottom: 5px;
+}
+
+.stat-item div {
+    font-size: 18px;
+    font-weight: bold;
+    color: #007bff;
+}
+
+.game-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.game-controls .btn {
+    width: 100%;
+    font-size: 14px;
+    padding: 8px 12px;
+}
+
+.words-list {
+    max-height: 300px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.found-words h4 {
+    margin-bottom: 10px;
+    color: #495057;
+    font-size: 16px;
+}
+
+.current-word {
+    text-align: center;
+    padding: 20px 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.current-word h4 {
+    margin-bottom: 10px;
+    color: #495057;
+    font-size: 16px;
+}
+
+.word-display {
+    font-size: 24px;
+    font-weight: bold;
+    color: #007bff;
+    min-height: 30px;
+    padding: 5px;
+    border-bottom: 2px solid #007bff;
+}
+
+.game-message .message {
+    padding: 10px;
+    background: #d1ecf1;
+    color: #0c5460;
+    border-radius: 5px;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* Progress Indicator */
+.generation-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    text-align: center;
+}
+
+.progress-spinner {
+    margin-bottom: 1rem;
+}
+
+.progress-spinner .spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+.progress-status {
+    font-size: 1.1em;
+    color: #666;
+    font-weight: 500;
+}
+
 .found-words {
     width: 100%;
     max-width: 600px;
@@ -106,7 +239,7 @@ a, .btn-link {
 /* Crossword Grid Styles */
 .crossword-grid {
     text-align: center;
-    margin: 20px 0;
+    margin: 0;
 }
 
 .grid-container {
@@ -115,7 +248,7 @@ a, .btn-link {
     background: #ccc;
     padding: 1px;
     border-radius: 4px;
-    margin: 10px 0;
+    margin: 0;
 }
 
 .grid-cell {
@@ -193,11 +326,17 @@ a, .btn-link {
 .letter-wheel {
     user-select: none;
     cursor: pointer;
+    touch-action: none; /* Prevent scrolling and zooming only within the wheel */
+    -webkit-touch-callout: none; /* Disable iOS callout */
+    -webkit-user-select: none; /* Disable text selection on WebKit */
+    margin: 0;
+    padding: 0;
 }
 
 .letter-container {
     cursor: pointer;
     transition: all 0.2s;
+    /* No touch-action here - let the parent handle it */
 }
 
 .letter-container:hover circle {
@@ -343,7 +482,8 @@ a, .btn-link {
 @media (max-width: 600px) {
     .game-header {
         flex-direction: column;
-        gap: 10px;
+        gap: 5px;
+        margin-bottom: 0px;
     }
 
     .game-stats {
@@ -351,8 +491,33 @@ a, .btn-link {
     }
 
     .letter-wheel svg {
-        width: 250px;
-        height: 250px;
+        width: 240px;
+        height: 240px;
+    }
+
+    .game-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+        gap: 5px;
+        margin-top: -5px;
+    }
+
+    .left-sidebar, .right-sidebar {
+        order: 2;
+    }
+
+    .center-area {
+        order: 1;
+        gap: 3px;
+        margin-top: -10px;
+    }
+
+    .game-controls {
+        flex-direction: row;
+    }
+
+    .words-list {
+        max-height: 150px;
     }
 
     .hero-section h1 {

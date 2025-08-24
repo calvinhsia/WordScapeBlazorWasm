@@ -27,8 +27,7 @@ namespace WordScapeBlazorWasm.Models
         {
             return Task.Run(() =>
             {
-                WordScapePuzzle puzzleNext = null;
-                puzzleNext = new WordScapePuzzle()
+                WordScapePuzzle puzzleNext = new WordScapePuzzle()
                 {
                     LenTargetWord = wordGenerationParms.LenTargetWord,
                     MinSubWordLength = wordGenerationParms.MinSubWordLength

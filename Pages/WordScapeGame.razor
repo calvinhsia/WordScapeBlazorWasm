@@ -9,12 +9,6 @@
 <div class="wordscape-container">
     <div class="game-header">
         <h1>WordScape</h1>
-        <div class="game-stats">
-            <span>Score: @(_puzzleState?.Score ?? 0)</span>
-            <span>Words: @(_puzzleState?.FoundWords.Count ?? 0) / @(_puzzleState?.PossibleWords.Count ?? 0)</span>
-        </div>
-        <button class="btn btn-secondary" @onclick="ToggleSettings">Settings</button>
-        <button class="btn btn-primary" @onclick="NewGame">New Game</button>
     </div>
 
     @if (_showSettings)
@@ -36,124 +30,167 @@
 
     @if (_puzzleState is not null)
     {
-        <div class="game-area">
-            <!-- Crossword Grid -->
-            <div class="crossword-grid">
-                <h3>Crossword Grid</h3>
-                <div class="grid-container" 
-                     style="grid-template-columns: repeat(@_puzzleState.LegacyGrid.MaxX, 25px); grid-template-rows: repeat(@_puzzleState.LegacyGrid.MaxY, 25px);">
-                    @for (int y = 0; y < _puzzleState.LegacyGrid.MaxY; y++)
-                    {
-                        @for (int x = 0; x < _puzzleState.LegacyGrid.MaxX; x++)
+        <div class="game-layout">
+            <!-- Left Sidebar -->
+            <div class="left-sidebar">
+                <div class="game-stats">
+                    <div class="stat-item">
+                        <strong>Score</strong>
+                        <div>@(_puzzleState?.Score ?? 0)</div>
+                    </div>
+                    <div class="stat-item">
+                        <strong>Words</strong>
+                        <div>@(_puzzleState?.FoundWords.Count ?? 0) / @(_puzzleState?.PossibleWords.Count ?? 0)</div>
+                    </div>
+                </div>
+                
+                <div class="game-controls">
+                    <button class="btn btn-secondary" @onclick="ToggleSettings" disabled="@_isGenerating">Settings</button>
+                    <button class="btn btn-primary" @onclick="NewGame" disabled="@_isGenerating">
+                        @if (_isGenerating)
                         {
-                            var cell = _puzzleState.LegacyGrid.Cells.FirstOrDefault(c => c.X == x && c.Y == y);
-                            if (cell != null && !cell.IsBlank)
-                            {
-                                var localX = x; // capture for lambda
-                                var localY = y; // capture for lambda
-                                var isClicked = _clickedCell.HasValue && _clickedCell.Value.X == x && _clickedCell.Value.Y == y;
-                                <div class="grid-cell @(cell.IsRevealed ? "revealed" : "hidden") @(isClicked ? "clicked-highlight" : "")" 
-                                     style="grid-column: @(x + 1); grid-row: @(y + 1);"
-                                     @onclick="@(() => OnGridCellClick(localX, localY))">
-                                    @if (cell.IsRevealed)
-                                    {
-                                        @cell.Letter.ToString().ToUpper()
-                                    }
-                                </div>
-                            }
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>Generating...</span>
                         }
-                    }
+                        else
+                        {
+                            <span>New Game</span>
+                        }
+                    </button>
+                </div>
+
+                <!-- Found Words List -->
+                <div class="found-words">
+                    <h4>Found Words</h4>
+                    <div class="words-list">
+                        @foreach (var word in _puzzleState?.FoundWords?.OrderBy(w => w.Length).ThenBy(w => w) ?? Enumerable.Empty<string>())
+                        {
+                            <div class="found-word">@word</div>
+                        }
+                    </div>
                 </div>
             </div>
 
-            <!-- Found Words List -->
-            <div class="found-words">
-                <h3>Found Words</h3>
-                <div class="words-grid">
-                    @foreach (var word in _puzzleState.FoundWords.OrderBy(w => w.Length).ThenBy(w => w))
+            <!-- Center Area -->
+            <div class="center-area">
+                @if (_isGenerating)
+                {
+                    <div class="generation-progress">
+                        <div class="progress-spinner">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div class="progress-status">@_generationStatus</div>
+                    </div>
+                }
+                else
+                {
+                    <!-- Crossword Grid -->
+                    <div class="crossword-grid">
+                        <div class="grid-container" 
+                             style="grid-template-columns: repeat(@(_puzzleState?.LegacyGrid?.MaxX ?? 1), 25px); grid-template-rows: repeat(@(_puzzleState?.LegacyGrid?.MaxY ?? 1), 25px);">
+                            @for (int y = 0; y < (_puzzleState?.LegacyGrid?.MaxY ?? 0); y++)
+                            {
+                                @for (int x = 0; x < (_puzzleState?.LegacyGrid?.MaxX ?? 0); x++)
+                                {
+                                    var cell = _puzzleState?.LegacyGrid?.Cells?.FirstOrDefault(c => c.X == x && c.Y == y);
+                                    if (cell != null && !cell.IsBlank)
+                                    {
+                                        var localX = x; // capture for lambda
+                                        var localY = y; // capture for lambda
+                                        var isClicked = _clickedCell.HasValue && _clickedCell.Value.X == x && _clickedCell.Value.Y == y;
+                                        <div class="grid-cell @(cell.IsRevealed ? "revealed" : "hidden") @(isClicked ? "clicked-highlight" : "")" 
+                                             style="grid-column: @(x + 1); grid-row: @(y + 1);"
+                                             @onclick="@(() => OnGridCellClick(localX, localY))">
+                                            @if (cell.IsRevealed)
+                                            {
+                                                @cell.Letter.ToString().ToUpper()
+                                            }
+                                        </div>
+                                    }
+                                }
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Circle Letters -->
+                    <div class="letter-wheel" @ref="letterWheelElement">
+                        <svg width="280" height="280" viewBox="0 0 280 280">
+                            <!-- Circle border -->
+                            <circle cx="140" cy="140" r="90" fill="none" stroke="#ccc" stroke-width="2" />
+                            
+                            <!-- Connection line -->
+                            @if (_selectedLetters.Any())
+                            {
+                                <polyline points="@GetPolylinePoints()" 
+                                          fill="none" 
+                                          stroke="#007bff" 
+                                          stroke-width="3" />
+                            }
+
+                            <!-- Letters -->
+                            @for (int i = 0; i < _circleLetters.Count; i++)
+                            {
+                                var letter = _circleLetters[i];
+                                var isSelected = _selectedLetters.Contains(i);
+                                var index = i; // capture for lambda
+                                
+                                <g class="letter-container @(isSelected ? "selected" : "")"
+                                   @onmousedown="@(() => StartSelection(index))"
+                                   @onmouseover="@(() => ContinueSelection(index))"
+                                   @onmouseup="@(() => EndSelection())"
+                                   @ontouchstart="@((e) => HandleTouchStart(e, index))"
+                                   @ontouchmove="@((e) => HandleTouchMove(e, index))"
+                                   @ontouchend="@((e) => HandleTouchEnd(e))">
+                                    
+                                    <circle cx="@letter.X" 
+                                            cy="@letter.Y" 
+                                            r="25" 
+                                            fill="@(isSelected ? "#007bff" : "#f8f9fa")" 
+                                            stroke="@(isSelected ? "#0056b3" : "#dee2e6")" 
+                                            stroke-width="2" />
+                                    
+                                    <text x="@letter.X" 
+                                          y="@(letter.Y + 5)" 
+                                          text-anchor="middle" 
+                                          font-family="Arial, sans-serif" 
+                                          font-size="18" 
+                                          font-weight="bold" 
+                                          fill="@(isSelected ? "white" : "black")"
+                                          pointer-events="none">
+                                        @letter.Letter
+                                    </text>
+                                </g>
+                            }
+                        </svg>
+                    </div>
+                }
+            </div>
+
+            <!-- Right Sidebar -->
+            <div class="right-sidebar">
+                <div class="current-word">
+                    <div class="word-display">@_currentWord</div>
+                </div>
+
+                <div class="game-message">
+                    @if (!string.IsNullOrEmpty(_message))
                     {
-                        <div class="found-word">@word</div>
+                        <div class="message">@_message</div>
                     }
                 </div>
             </div>
-
-            <!-- Circle Letters -->
-            <div class="letter-wheel">
-                <svg width="300" height="300" viewBox="0 0 300 300">
-                    <!-- Circle border -->
-                    <circle cx="150" cy="150" r="120" fill="none" stroke="#ccc" stroke-width="2" />
-                    
-                    <!-- Connection line -->
-                    @if (_selectedLetters.Any())
-                    {
-                        <polyline points="@GetPolylinePoints()" 
-                                  fill="none" 
-                                  stroke="#007bff" 
-                                  stroke-width="3" />
-                    }
-
-                    <!-- Letters -->
-                    @for (int i = 0; i < _circleLetters.Count; i++)
-                    {
-                        var letter = _circleLetters[i];
-                        var isSelected = _selectedLetters.Contains(i);
-                        var index = i; // capture for lambda
-                        
-                        <g class="letter-container @(isSelected ? "selected" : "")"
-                           @onmousedown="@(() => StartSelection(index))"
-                           @onmouseover="@(() => ContinueSelection(index))"
-                           @onmouseup="@(() => EndSelection())"
-                           @ontouchstart="@(() => StartSelection(index))"
-                           @ontouchmove="@((e) => HandleTouchMove(e, index))"
-                           @ontouchend="@(() => EndSelection())">>
-                            
-                            <circle cx="@letter.X" 
-                                    cy="@letter.Y" 
-                                    r="25" 
-                                    fill="@(isSelected ? "#007bff" : "#f8f9fa")" 
-                                    stroke="@(isSelected ? "#0056b3" : "#dee2e6")" 
-                                    stroke-width="2" />
-                            
-                            <text x="@letter.X" 
-                                  y="@(letter.Y + 5)" 
-                                  text-anchor="middle" 
-                                  font-family="Arial, sans-serif" 
-                                  font-size="20" 
-                                  font-weight="bold" 
-                                  fill="@(isSelected ? "white" : "black")">
-                                @letter.Letter
-                            </text>
-                        </g>
-                    }
-                </svg>
-            </div>
-
-            <!-- Current Word -->
-            <div class="current-word">
-                <h3>Current Word: @_currentWord</h3>
-                <button class="btn btn-warning" @onclick="ClearSelection">Clear</button>
-            </div>
-
-            @if (!string.IsNullOrEmpty(_message))
-            {
-                <div class="alert alert-info">@_message</div>
-            }
         </div>
 
-        @if (_puzzleState.IsComplete)
+        @if (_puzzleState?.IsComplete == true)
         {
             <div class="alert alert-success">
                 <h3>Congratulations!</h3>
-                <p>You found all @_puzzleState.PossibleWords.Count words!</p>
-                <p>Final Score: @_puzzleState.Score</p>
+                <p>You found all @(_puzzleState?.PossibleWords?.Count ?? 0) words!</p>
+                <p>Final Score: @(_puzzleState?.Score ?? 0)</p>
             </div>
         }
-    }
-    else if (_isLoading)
-    {
-        <div class="loading">
-            <p>Generating puzzle...</p>
-        </div>
     }
 </div>
 
@@ -161,7 +198,6 @@
     private PuzzleState? _puzzleState;
     private GameSettings _settings = new();
     private bool _showSettings = false;
-    private bool _isLoading = false;
     private string _message = "";
     private string _currentWord = "";
     
@@ -172,6 +208,13 @@
     private System.Threading.Timer? _hideTimer;
     private (int X, int Y)? _clickedCell = null;
     private System.Threading.Timer? _clickHighlightTimer;
+    private ElementReference letterWheelElement;
+    private bool _isGenerating = false;
+    private string _generationStatus = "";
+    
+    // Background puzzle generation
+    private Task<PuzzleState?>? _taskGenNextPuzzle = null;
+    private CancellationTokenSource? _cancellationTokenSource = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -181,7 +224,58 @@
 
     private async Task NewGame()
     {
-        _isLoading = true;
+        // Check if we have a pre-generated puzzle ready
+        if (_taskGenNextPuzzle is not null)
+        {
+            Console.WriteLine("🚀 Using pre-generated puzzle from background task");
+            try
+            {
+                // Use the pre-generated puzzle
+                _puzzleState = await _taskGenNextPuzzle;
+                _taskGenNextPuzzle = null; // Clear the task
+                
+                if (_puzzleState != null)
+                {
+                    _message = "";
+                    _selectedLetters.Clear();
+                    _currentWord = "";
+                    _temporarilyRevealedWord = null;
+                    _hideTimer?.Dispose();
+                    _hideTimer = null;
+                    
+                    CreateCircleLetters();
+                    _message = $"New puzzle ready! Target: {_puzzleState.TargetWord}, Words to find: {_puzzleState.PossibleWords.Count}";
+                    
+                    // Clear message after 3 seconds
+                    _ = Task.Delay(3000).ContinueWith(_ => 
+                    {
+                        if (_message.Contains("New puzzle ready"))
+                            _message = "";
+                        InvokeAsync(StateHasChanged);
+                    });
+                    
+                    // Start generating the next puzzle in background
+                    StartBackgroundPuzzleGeneration();
+                    StateHasChanged();
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error with pre-generated puzzle: {ex.Message}");
+                _taskGenNextPuzzle = null; // Clear failed task
+            }
+        }
+        
+        // Fall back to synchronous generation with progress indicator
+        // Only show progress indicator for longer words (when generation takes time)
+        bool showProgress = _settings.MaxWordLength >= 9;
+        
+        _isGenerating = showProgress;
+        if (showProgress)
+        {
+            _generationStatus = "Initializing...";
+        }
         _message = "";
         _puzzleState = null;
         _selectedLetters.Clear();
@@ -191,13 +285,40 @@
         _hideTimer = null;
         StateHasChanged();
 
+        if (showProgress)
+        {
+            await Task.Delay(500); // Allow UI to update and show initializing
+        }
+
         try
         {
+            if (showProgress)
+            {
+                _generationStatus = "Generating words...";
+                StateHasChanged();
+                await Task.Delay(300); // Show status for a moment
+            }
+            
             _puzzleState = await GameService.GeneratePuzzleAsync(_settings);
             
             if (_puzzleState != null)
             {
+                if (showProgress)
+                {
+                    _generationStatus = "Creating circle...";
+                    StateHasChanged();
+                    await Task.Delay(300); // Show status for a moment
+                }
+                
                 CreateCircleLetters();
+                
+                if (showProgress)
+                {
+                    _generationStatus = "Finalizing...";
+                    StateHasChanged();
+                    await Task.Delay(200); // Final status
+                }
+                
                 _message = $"New puzzle created! Target: {_puzzleState.TargetWord}, Words to find: {_puzzleState.PossibleWords.Count}";
                 
                 // Clear message after 3 seconds
@@ -207,6 +328,9 @@
                         _message = "";
                     InvokeAsync(StateHasChanged);
                 });
+                
+                // Start generating the next puzzle in background
+                StartBackgroundPuzzleGeneration();
             }
             else
             {
@@ -221,7 +345,8 @@
         }
         finally
         {
-            _isLoading = false;
+            _isGenerating = false;
+            _generationStatus = "";
             StateHasChanged();
         }
     }
@@ -232,9 +357,9 @@
 
         _circleLetters.Clear();
         var letters = _puzzleState.CircleLetters;
-        var radius = 100.0;
-        var centerX = 150.0;
-        var centerY = 150.0;
+        var radius = 90.0;  // Increased from 70 for larger, finger-friendly circle
+        var centerX = 140.0;  // Updated to match SVG center
+        var centerY = 140.0;  // Updated to match SVG center
 
         for (int i = 0; i < letters.Count; i++)
         {
@@ -282,13 +407,50 @@
         }
     }
 
+    private void HandleTouchStart(TouchEventArgs e, int index)
+    {
+        StartSelection(index);
+    }
+
     private void HandleTouchMove(TouchEventArgs e, int index)
     {
         if (!_isSelecting) return;
         
-        // For touch events, we need to determine which letter the touch is over
-        // This is a simplified approach - in a production app you might want more precise touch handling
-        ContinueSelection(index);
+        // Get touch coordinates and find the letter under the touch
+        if (e.ChangedTouches.Length > 0)
+        {
+            var touch = e.ChangedTouches[0];
+            var hitIndex = GetLetterIndexFromCoordinates(touch.ClientX, touch.ClientY);
+            if (hitIndex >= 0)
+            {
+                ContinueSelection(hitIndex);
+            }
+        }
+    }
+
+    private void HandleTouchEnd(TouchEventArgs e)
+    {
+        if (_isSelecting)
+        {
+            EndSelection();
+        }
+    }
+
+    private int GetLetterIndexFromCoordinates(double clientX, double clientY)
+    {
+        // This is a simplified hit detection - in production you might want to use JS interop
+        // to get more accurate SVG coordinates
+        for (int i = 0; i < _circleLetters.Count; i++)
+        {
+            var letter = _circleLetters[i];
+            // Approximate hit detection based on circle radius - increased for larger circles
+            var distance = Math.Sqrt(Math.Pow(clientX - (letter.X + 20), 2) + Math.Pow(clientY - (letter.Y + 20), 2));
+            if (distance <= 30) // Increased from 25 to match larger 25px radius circles
+            {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private void UpdateCurrentWord()
@@ -361,6 +523,17 @@
 
         await SettingsService.SaveSettingsAsync(_settings);
         _showSettings = false;
+        
+        // Cancel any background generation since settings changed
+        _cancellationTokenSource?.Cancel();
+        _taskGenNextPuzzle = null;
+        
+        // Restart background generation with new settings if we have a current puzzle
+        if (_puzzleState != null)
+        {
+            StartBackgroundPuzzleGeneration();
+        }
+        
         _message = "Settings saved! Click 'New Game' to apply changes.";
         
         _ = Task.Delay(3000).ContinueWith(_ => 
@@ -368,6 +541,8 @@
             _message = "";
             InvokeAsync(StateHasChanged);
         });
+
+        StateHasChanged();
     }
 
     private void OnGridCellClick(int x, int y)
@@ -438,9 +613,51 @@
         }
     }
 
+    private void StartBackgroundPuzzleGeneration()
+    {
+        // Cancel any existing background generation
+        _cancellationTokenSource?.Cancel();
+        _cancellationTokenSource?.Dispose();
+        
+        _cancellationTokenSource = new CancellationTokenSource();
+        var cancellationToken = _cancellationTokenSource.Token;
+        
+        Console.WriteLine("🔄 Starting background puzzle generation...");
+        
+        // Start the background task
+        _taskGenNextPuzzle = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(1000, cancellationToken); // Small delay before starting generation
+                if (cancellationToken.IsCancellationRequested) return null;
+                
+                Console.WriteLine("🎮 Generating next puzzle in background...");
+                var nextPuzzle = await GameService.GeneratePuzzleAsync(_settings);
+                
+                if (cancellationToken.IsCancellationRequested) return null;
+                
+                Console.WriteLine($"✅ Background puzzle generated: {nextPuzzle?.TargetWord}");
+                return nextPuzzle;
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("🛑 Background puzzle generation cancelled");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error in background puzzle generation: {ex.Message}");
+                return null;
+            }
+        }, cancellationToken);
+    }
+
     public void Dispose()
     {
         _hideTimer?.Dispose();
         _clickHighlightTimer?.Dispose();
+        _cancellationTokenSource?.Cancel();
+        _cancellationTokenSource?.Dispose();
     }
 }

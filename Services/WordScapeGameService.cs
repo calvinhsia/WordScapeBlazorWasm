@@ -412,7 +412,7 @@ namespace WordScapeBlazorWasm.Services
         public string? GetWordAtPosition(int x, int y, PuzzleState puzzle)
         {
             // Find the word that contains this position and hasn't been found yet
-            foreach (var kvp in puzzle.Grid._dictPlacedWords)
+            foreach (var kvp in puzzle.Grid?._dictPlacedWords ?? new Dictionary<string, LtrPlaced>())
             {
                 var word = kvp.Key;
                 var placement = kvp.Value;
@@ -525,7 +525,7 @@ namespace WordScapeBlazorWasm.Services
 
         public WordStatus ShowWordInGrid(string word, PuzzleState puzzle)
         {
-            if (puzzle.Grid._dictPlacedWords.TryGetValue(word, out var placement))
+            if (puzzle.Grid?._dictPlacedWords?.TryGetValue(word, out var placement) == true)
             {
                 bool wasAlreadyRevealed = true;
                 
