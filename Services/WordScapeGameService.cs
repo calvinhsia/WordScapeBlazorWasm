@@ -117,8 +117,9 @@ namespace WordScapeBlazorWasm.Services
             // Yield before sorting (potentially CPU intensive for large word lists)
             await Task.Yield();
 
-            // Sort words by length (longest first) for better placement
-            var sortedWords = possibleWords.OrderByDescending(w => w.Length).ToList();
+            // Smart word sorting: Balance density with placement opportunities
+            // Instead of pure longest-first, use a multi-factor scoring system
+            var sortedWords = SmartSortWordsForPlacement(possibleWords);
             var placedWords = new List<string>();
 
             // Place the first word horizontally in the center
@@ -133,33 +134,8 @@ namespace WordScapeBlazorWasm.Services
             // Yield before intensive word placement loop
             await Task.Yield();
 
-            // Try to place additional words by finding intersections
-            int attempts = 0;
-            foreach (var word in sortedWords.Skip(1))
-            {
-                attempts++;
-                if (placedWords.Count >= 8) break; // Limit to avoid overcrowding
-                
-                // Yield every few attempts to prevent UI blocking
-                if (attempts % 3 == 0)
-                {
-                    await Task.Yield();
-                }
-                
-                // Only show detailed debugging for first few attempts to avoid spam
-                bool showDetailedDebug = attempts <= 3;
-                
-                if (showDetailedDebug) Console.WriteLine($"🔍 Attempt {attempts}: Trying to place '{word}'...");
-                if (TryPlaceIntersectingWord(genGrid, word, placedWords, showDetailedDebug))
-                {
-                    placedWords.Add(word);
-                    Console.WriteLine($"✅ Successfully placed '{word}' (total: {placedWords.Count})");
-                }
-                else
-                {
-                    if (showDetailedDebug) Console.WriteLine($"❌ Failed to place '{word}'");
-                }
-            }
+            // Multi-pass placement strategy for better density
+            await PlaceWordsWithMultiPassStrategy(genGrid, sortedWords.Skip(1).ToList(), placedWords);
 
             Console.WriteLine($"🎮 Final grid has {placedWords.Count} words: {string.Join(", ", placedWords)}");
             return genGrid;
@@ -193,6 +169,187 @@ namespace WordScapeBlazorWasm.Services
                 nY = startY,
                 IsHoriz = false
             };
+        }
+
+        /// <summary>
+        /// Smart word sorting that balances grid density with placement opportunities.
+        /// Instead of pure longest-first, considers multiple factors for better grid utilization.
+        /// </summary>
+        private List<string> SmartSortWordsForPlacement(List<string> words)
+        {
+            Console.WriteLine($"🧠 Smart sorting {words.Count} words for optimal placement...");
+            
+            return words.OrderBy(word => 
+            {
+                // Multi-factor scoring: Lower score = higher priority
+                double score = 0;
+                
+                // Factor 1: Word length (longer words generally harder to place later)
+                // But not the only factor - weight by 0.4 instead of 1.0
+                score += (10 - word.Length) * 0.4;
+                
+                // Factor 2: Letter frequency (words with common letters easier to intersect)
+                double letterCommonness = CalculateLetterCommonness(word);
+                score += (1.0 - letterCommonness) * 0.3; // Lower commonness = higher score
+                
+                // Factor 3: Vowel/consonant balance (balanced words more versatile)
+                double balance = CalculateVowelConsonantBalance(word);
+                score += (1.0 - balance) * 0.2; // Lower balance = higher score
+                
+                // Factor 4: Add slight randomization to avoid deterministic patterns
+                score += _random.NextDouble() * 0.1;
+                
+                return score;
+            }).ToList();
+        }
+
+        /// <summary>
+        /// Multi-pass word placement strategy for maximum grid density.
+        /// First pass: Try placing all words normally
+        /// Second pass: Try remaining words with relaxed constraints
+        /// Third pass: Fill gaps with short words
+        /// </summary>
+        private async Task PlaceWordsWithMultiPassStrategy(GenGrid genGrid, List<string> remainingWords, List<string> placedWords)
+        {
+            Console.WriteLine($"🎯 Starting multi-pass placement for {remainingWords.Count} words...");
+            
+            // Pass 1: Standard placement (prefer longer words with good intersections)
+            await PlaceWordsWithStrategy(genGrid, remainingWords, placedWords, "standard", 12);
+            
+            // Pass 2: Relaxed placement (try medium words more aggressively)
+            var stillRemaining = remainingWords.Where(w => !placedWords.Contains(w)).ToList();
+            await PlaceWordsWithStrategy(genGrid, stillRemaining, placedWords, "relaxed", 20);
+            
+            // Pass 3: Gap filling (focus on short words that can fit anywhere)
+            stillRemaining = remainingWords.Where(w => !placedWords.Contains(w) && w.Length <= 5).ToList();
+            await PlaceWordsWithStrategy(genGrid, stillRemaining, placedWords, "gapfill", 25);
+            
+            Console.WriteLine($"🎮 Multi-pass complete: {placedWords.Count} total words placed");
+        }
+
+        /// <summary>
+        /// Place words using specific strategy with different limits and approaches
+        /// </summary>
+        private async Task PlaceWordsWithStrategy(GenGrid genGrid, List<string> words, List<string> placedWords, string strategy, int maxWords)
+        {
+            int attempts = 0;
+            int successCount = 0;
+            
+            foreach (var word in words)
+            {
+                attempts++;
+                if (placedWords.Count >= maxWords) break;
+                
+                // Yield every few attempts to prevent UI blocking
+                if (attempts % 5 == 0)
+                {
+                    await Task.Yield();
+                }
+                
+                // Strategy-specific debugging
+                bool showDetailedDebug = strategy == "standard" && attempts <= 3;
+                
+                if (showDetailedDebug) Console.WriteLine($"🔍 {strategy} attempt {attempts}: Trying '{word}'...");
+                
+                bool placed = false;
+                
+                // Try different placement strategies based on pass
+                switch (strategy)
+                {
+                    case "standard":
+                        placed = TryPlaceIntersectingWord(genGrid, word, placedWords, showDetailedDebug);
+                        break;
+                        
+                    case "relaxed":
+                        // Try both intersection and if that fails, try forced placement
+                        placed = TryPlaceIntersectingWord(genGrid, word, placedWords, false) ||
+                                TryPlaceWordWithForce(genGrid, word, placedWords);
+                        break;
+                        
+                    case "gapfill":
+                        // For short words, be more aggressive about finding any valid spot
+                        placed = TryPlaceIntersectingWord(genGrid, word, placedWords, false) ||
+                                TryPlaceWordWithForce(genGrid, word, placedWords) ||
+                                TryPlaceWordInGap(genGrid, word, placedWords);
+                        break;
+                }
+                
+                if (placed)
+                {
+                    placedWords.Add(word);
+                    successCount++;
+                    Console.WriteLine($"✅ {strategy}: Placed '{word}' (pass total: {successCount}/{attempts})");
+                }
+                else if (showDetailedDebug)
+                {
+                    Console.WriteLine($"❌ {strategy}: Failed to place '{word}'");
+                }
+            }
+            
+            Console.WriteLine($"📊 {strategy} pass complete: {successCount}/{attempts} words placed");
+        }
+
+        /// <summary>
+        /// Calculate letter commonness score (0-1, higher = more common letters)
+        /// </summary>
+        private double CalculateLetterCommonness(string word)
+        {
+            // Common letter frequencies in English (approximate)
+            var letterFreq = new Dictionary<char, double>
+            {
+                ['E'] = 0.127, ['T'] = 0.091, ['A'] = 0.082, ['O'] = 0.075, ['I'] = 0.070,
+                ['N'] = 0.067, ['S'] = 0.063, ['H'] = 0.061, ['R'] = 0.060, ['D'] = 0.043,
+                ['L'] = 0.040, ['C'] = 0.028, ['U'] = 0.028, ['M'] = 0.024, ['W'] = 0.024,
+                ['F'] = 0.022, ['G'] = 0.020, ['Y'] = 0.020, ['P'] = 0.019, ['B'] = 0.015,
+                ['V'] = 0.010, ['K'] = 0.008, ['J'] = 0.002, ['X'] = 0.002, ['Q'] = 0.001, ['Z'] = 0.001
+            };
+            
+            double totalFreq = 0;
+            foreach (char c in word)
+            {
+                totalFreq += letterFreq.GetValueOrDefault(c, 0.001); // Very rare for missing letters
+            }
+            
+            return totalFreq / word.Length; // Average frequency
+        }
+
+        /// <summary>
+        /// Calculate vowel/consonant balance (0-1, higher = more balanced)
+        /// </summary>
+        private double CalculateVowelConsonantBalance(string word)
+        {
+            var vowels = "AEIOU";
+            int vowelCount = word.Count(c => vowels.Contains(c));
+            int consonantCount = word.Length - vowelCount;
+            
+            if (word.Length == 0) return 0;
+            
+            // Ideal ratio is around 40% vowels, 60% consonants
+            double vowelRatio = (double)vowelCount / word.Length;
+            double ideal = 0.4;
+            double distance = Math.Abs(vowelRatio - ideal);
+            
+            return 1.0 - distance; // Higher score for closer to ideal
+        }
+
+        /// <summary>
+        /// Try to place a word with more aggressive tactics (may create isolated placements)
+        /// </summary>
+        private bool TryPlaceWordWithForce(GenGrid genGrid, string word, List<string> placedWords)
+        {
+            // For now, just return false - this is a placeholder for more advanced placement
+            // Could implement things like placing words that don't intersect but are close
+            return false;
+        }
+
+        /// <summary>
+        /// Try to place short words in any available gaps in the grid
+        /// </summary>
+        private bool TryPlaceWordInGap(GenGrid genGrid, string word, List<string> placedWords)
+        {
+            // For now, just return false - this is a placeholder for gap-filling logic
+            // Could scan the grid for unused spaces that could fit short words
+            return false;
         }
 
         private bool TryPlaceIntersectingWord(GenGrid genGrid, string newWord, List<string> placedWords, bool showDebug = false)
