@@ -120,7 +120,9 @@
 
                     <!-- Circle Letters -->
                     <div class="letter-wheel" @ref="letterWheelElement">
-                        <svg width="280" height="280" viewBox="0 0 280 280">
+                        <svg width="280" height="280" viewBox="0 0 280 280"
+                             @onmousemove="@HandleMouseMove"
+                             @onmousemove:preventDefault="true">
                             <!-- Circle border -->
                             <circle cx="140" cy="140" r="90" fill="none" stroke="#ccc" stroke-width="2" />
                             
@@ -400,9 +402,24 @@
     {
         if (!_isSelecting) return;
         
+        // Check if this is the penultimate (second-to-last) letter
+        // If so, allow undo by removing the last letter
+        if (_selectedLetters.Count >= 2 && _selectedLetters[_selectedLetters.Count - 2] == index)
+        {
+            // Remove the last selected letter (undo)
+            var removedIndex = _selectedLetters[_selectedLetters.Count - 1];
+            _selectedLetters.RemoveAt(_selectedLetters.Count - 1);
+            Console.WriteLine($"🔙 Undo: Removed letter at index {removedIndex}, current word: '{string.Join("", _selectedLetters.Select(i => _circleLetters[i].Letter))}'");
+            UpdateCurrentWord();
+            StateHasChanged();
+            return;
+        }
+        
+        // Only add if not already selected and not backtracking
         if (!_selectedLetters.Contains(index))
         {
             _selectedLetters.Add(index);
+            Console.WriteLine($"➕ Added letter at index {index}, current word: '{_currentWord}'");
             UpdateCurrentWord();
             StateHasChanged();
         }
@@ -447,6 +464,19 @@
         if (_isSelecting)
         {
             EndSelection();
+        }
+    }
+
+    private async void HandleMouseMove(MouseEventArgs e)
+    {
+        if (!_isSelecting) return;
+        
+        // Get mouse coordinates and find the letter under the cursor
+        var hitIndex = await GetLetterIndexFromCoordinatesAsync(e.ClientX, e.ClientY);
+        if (hitIndex >= 0)
+        {
+            ContinueSelection(hitIndex);
+            StateHasChanged();
         }
     }
 
