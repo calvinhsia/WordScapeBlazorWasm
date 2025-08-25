@@ -31,6 +31,40 @@
         window.getBoundingClientRect = function (element) {
             return element.getBoundingClientRect();
         };
+
+        window.convertClientToSVGCoordinates = function (svgElement, clientX, clientY) {
+            try {
+                // Find the SVG element within the letter wheel container
+                const svg = svgElement.querySelector('svg');
+                if (!svg) {
+                    console.error('SVG element not found');
+                    return null;
+                }
+
+                // Check if the SVG transformation method is available
+                if (svg.createSVGPoint && svg.getScreenCTM) {
+                    // Create an SVG point
+                    const pt = svg.createSVGPoint();
+                    pt.x = clientX;
+                    pt.y = clientY;
+
+                    // Transform the point from client coordinates to SVG coordinates
+                    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+                    
+                    return [svgP.x, svgP.y];
+                } else {
+                    // Fallback method using getBoundingClientRect
+                    const rect = svg.getBoundingClientRect();
+                    const svgX = ((clientX - rect.left) / rect.width) * 280; // 280 is SVG viewBox width
+                    const svgY = ((clientY - rect.top) / rect.height) * 280; // 280 is SVG viewBox height
+                    
+                    return [svgX, svgY];
+                }
+            } catch (error) {
+                console.error('Error converting coordinates:', error);
+                return null;
+            }
+        };
     </script>
 </body>
 

@@ -141,8 +141,11 @@
                                    @onmouseover="@(() => ContinueSelection(index))"
                                    @onmouseup="@(() => EndSelection())"
                                    @ontouchstart="@((e) => HandleTouchStart(e, index))"
+                                   @ontouchstart:preventDefault="true"
                                    @ontouchmove="@((e) => HandleTouchMove(e, index))"
-                                   @ontouchend="@((e) => HandleTouchEnd(e))">
+                                   @ontouchmove:preventDefault="true"
+                                   @ontouchend="@((e) => HandleTouchEnd(e))"
+                                   @ontouchend:preventDefault="true">
                                     
                                     <circle cx="@letter.X" 
                                             cy="@letter.Y" 
@@ -219,6 +222,9 @@
     protected override async Task OnInitializedAsync()
     {
         _settings = await SettingsService.LoadSettingsAsync();
+        if (_settings.MaxWordLength > 9) {
+            _settings.MaxWordLength = 9; // for testing, we'll keep them fast
+        }
         await NewGame();
     }
 
@@ -383,6 +389,7 @@
         _selectedLetters.Add(index);
         _isSelecting = true;
         UpdateCurrentWord();
+        StateHasChanged();
     }
 
     private void ContinueSelection(int index)
@@ -393,6 +400,7 @@
         {
             _selectedLetters.Add(index);
             UpdateCurrentWord();
+            StateHasChanged();
         }
     }
 
@@ -405,6 +413,7 @@
         {
             SubmitWord();
         }
+        StateHasChanged();
     }
 
     private void HandleTouchStart(TouchEventArgs e, int index)
@@ -412,7 +421,7 @@
         StartSelection(index);
     }
 
-    private void HandleTouchMove(TouchEventArgs e, int index)
+    private async void HandleTouchMove(TouchEventArgs e, int index)
     {
         if (!_isSelecting) return;
         
@@ -420,10 +429,11 @@
         if (e.ChangedTouches.Length > 0)
         {
             var touch = e.ChangedTouches[0];
-            var hitIndex = GetLetterIndexFromCoordinates(touch.ClientX, touch.ClientY);
+            var hitIndex = await GetLetterIndexFromCoordinatesAsync(touch.ClientX, touch.ClientY);
             if (hitIndex >= 0)
             {
                 ContinueSelection(hitIndex);
+                StateHasChanged();
             }
         }
     }
@@ -436,21 +446,34 @@
         }
     }
 
-    private int GetLetterIndexFromCoordinates(double clientX, double clientY)
+    private async Task<int> GetLetterIndexFromCoordinatesAsync(double clientX, double clientY)
     {
-        // This is a simplified hit detection - in production you might want to use JS interop
-        // to get more accurate SVG coordinates
-        for (int i = 0; i < _circleLetters.Count; i++)
+        try
         {
-            var letter = _circleLetters[i];
-            // Approximate hit detection based on circle radius - increased for larger circles
-            var distance = Math.Sqrt(Math.Pow(clientX - (letter.X + 20), 2) + Math.Pow(clientY - (letter.Y + 20), 2));
-            if (distance <= 30) // Increased from 25 to match larger 25px radius circles
+            // Use JavaScript interop to convert client coordinates to SVG coordinates
+            var svgCoords = await JSRuntime.InvokeAsync<double[]>("convertClientToSVGCoordinates", letterWheelElement, clientX, clientY);
+            if (svgCoords == null || svgCoords.Length < 2) return -1;
+            
+            var svgX = svgCoords[0];
+            var svgY = svgCoords[1];
+            
+            // Check each letter circle for hit detection
+            for (int i = 0; i < _circleLetters.Count; i++)
             {
-                return i;
+                var letter = _circleLetters[i];
+                var distance = Math.Sqrt(Math.Pow(svgX - letter.X, 2) + Math.Pow(svgY - letter.Y, 2));
+                if (distance <= 25) // Circle radius is 25
+                {
+                    return i;
+                }
             }
+            return -1;
         }
-        return -1;
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in coordinate conversion: {ex.Message}");
+            return -1;
+        }
     }
 
     private void UpdateCurrentWord()
