@@ -526,6 +526,22 @@
     {
         if (string.IsNullOrEmpty(_currentWord) || _puzzleState is null) return;
 
+        // Check minimum word length - if below minimum, just unselect without adding to found words
+        if (_currentWord.Length < _settings.MinWordLength)
+        {
+            _message = $"Word must be at least {_settings.MinWordLength} letters long.";
+            ClearSelection();
+            StateHasChanged();
+            
+            // Clear message after 2 seconds
+            _ = Task.Delay(2000).ContinueWith(_ => 
+            {
+                _message = "";
+                InvokeAsync(StateHasChanged);
+            });
+            return;
+        }
+
         // Always validate and add the word to the found list (even if invalid)
         var wordType = GameService.ValidateWord(_currentWord, _puzzleState);
         var foundWord = new FoundWord { Word = _currentWord, Type = wordType };
