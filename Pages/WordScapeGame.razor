@@ -63,9 +63,13 @@
                 <div class="found-words">
                     <h4>Found Words</h4>
                     <div class="words-list">
-                        @foreach (var word in _puzzleState?.FoundWords?.OrderBy(w => w.Length).ThenBy(w => w) ?? Enumerable.Empty<string>())
+                        @foreach (var foundWord in _puzzleState?.FoundWords?.OrderBy(fw => fw.Word.Length).ThenBy(fw => fw.Word) ?? Enumerable.Empty<FoundWord>())
                         {
-                            <div class="found-word">@word</div>
+                            <div class="found-word @GetWordCssClass(foundWord.Type)" 
+                                 @onclick="@(() => OpenDictionaryDefinition(foundWord.Word))"
+                                 title="Click to look up definition">
+                                @foundWord.Word
+                            </div>
                         }
                     </div>
                 </div>
@@ -492,21 +496,35 @@
     {
         if (string.IsNullOrEmpty(_currentWord) || _puzzleState is null) return;
 
-        if (GameService.TryAddWord(_currentWord, _puzzleState))
+        // Always validate and add the word to the found list (even if invalid)
+        var wordType = GameService.ValidateWord(_currentWord, _puzzleState);
+        var foundWord = new FoundWord { Word = _currentWord, Type = wordType };
+        
+        // Check if this word was already guessed
+        if (_puzzleState.FoundWords.Any(fw => fw.Word == _currentWord))
         {
-            _message = $"Great! You found '{_currentWord}'!";
-        }
-        else if (_puzzleState.FoundWords.Contains(_currentWord))
-        {
-            _message = $"You already found '{_currentWord}'.";
-        }
-        else if (!GameService.IsValidGuess(_currentWord, _puzzleState))
-        {
-            _message = $"'{_currentWord}' is not a valid word or cannot be formed from the available letters.";
+            _message = $"You already guessed '{_currentWord}'.";
         }
         else
         {
-            _message = $"'{_currentWord}' is not one of the target words for this puzzle.";
+            // Add the word to found words regardless of its validity
+            _puzzleState.FoundWords.Add(foundWord);
+            
+            // If it's a grid word, also reveal it in the grid
+            if (wordType == FoundWordType.SubWordInGrid)
+            {
+                GameService.ShowWordInGrid(_currentWord, _puzzleState);
+            }
+            
+            // Set appropriate message based on word type
+            _message = wordType switch
+            {
+                FoundWordType.SubWordInGrid => $"Great! You found '{_currentWord}'!",
+                FoundWordType.SubWordInLargeDictionary => $"'{_currentWord}' is a valid word (large dictionary)!",
+                FoundWordType.SubWordNotInGrid => $"'{_currentWord}' is a valid word but not in this puzzle.",
+                FoundWordType.SubWordNotAWord => $"'{_currentWord}' is not a valid word.",
+                _ => $"'{_currentWord}' was added to your list."
+            };
         }
 
         ClearSelection();
@@ -606,7 +624,7 @@
             _message = $"❌ No word found at ({x}, {y})";
         }
         
-        if (!string.IsNullOrEmpty(wordAtPosition) && !_puzzleState.FoundWords.Contains(wordAtPosition))
+        if (!string.IsNullOrEmpty(wordAtPosition) && !_puzzleState.FoundWords.Any(fw => fw.Word == wordAtPosition))
         {            
             // Hide any previously revealed word
             if (!string.IsNullOrEmpty(_temporarilyRevealedWord))
@@ -674,6 +692,26 @@
                 return null;
             }
         }, cancellationToken);
+    }
+
+    private async Task OpenDictionaryDefinition(string word)
+    {
+        // Open Merriam-Webster dictionary definition in a new tab/window
+        // This matches the original WordScape implementation
+        var url = $"https://www.merriam-webster.com/dictionary/{word.ToLower()}";
+        await JSRuntime.InvokeVoidAsync("openUrl", url);
+    }
+
+    private string GetWordCssClass(FoundWordType wordType)
+    {
+        return wordType switch
+        {
+            FoundWordType.SubWordInGrid => "word-in-grid",
+            FoundWordType.SubWordInLargeDictionary => "word-in-large-dict",
+            FoundWordType.SubWordNotInGrid => "word-in-small-dict",
+            FoundWordType.SubWordNotAWord => "word-not-found",
+            _ => ""
+        };
     }
 
     public void Dispose()

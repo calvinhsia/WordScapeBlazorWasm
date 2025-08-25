@@ -1,5 +1,19 @@
 namespace WordScapeBlazorWasm.Models
 {
+    public enum FoundWordType
+    {
+        SubWordInGrid,              // Word is in the puzzle grid (Dark Cyan)
+        SubWordInLargeDictionary,   // Word is in large dictionary but not in grid (Light Sea Green) 
+        SubWordNotInGrid,           // Word is in small dictionary but not in grid (Light Blue)
+        SubWordNotAWord             // Word is not in any dictionary (Light Pink)
+    }
+
+    public class FoundWord
+    {
+        public string Word { get; set; } = "";
+        public FoundWordType Type { get; set; }
+    }
+
     public class GameSettings
     {
         public int MinWordLength { get; set; } = 3;
@@ -10,11 +24,11 @@ namespace WordScapeBlazorWasm.Models
     {
         public string TargetWord { get; set; } = "";
         public List<string> PossibleWords { get; set; } = new();
-        public HashSet<string> FoundWords { get; set; } = new();
+        public HashSet<FoundWord> FoundWords { get; set; } = new();
         public List<char> CircleLetters { get; set; } = new();
         public string CurrentGuess { get; set; } = "";
         public bool IsComplete => FoundWords.Count == PossibleWords.Count;
-        public int Score => FoundWords.Sum(word => word.Length * 10);
+        public int Score => FoundWords.Sum(fw => fw.Word.Length * 10);
         
         // Grid properties - using the original GenGrid system
         public GenGrid? Grid { get; set; }

@@ -5,7 +5,14 @@ A word puzzle game built with Blazor WebAssembly that implements the WordScape g
 ## Features
 
 - **Interactive Letter Circle**: Drag around the circle to select letters and form words
-- **Word Validation**: Uses DictionaryLib_Calvin_Hsia package for dictionary validation
+- **Two-Dictionary Word Validation**: Uses both small and large dictionaries from DictionaryLib_Calvin_Hsia package
+- **Color-Coded Found Words**: Visual feedback showing word categories:
+  - **Dark Cyan**: Words in the puzzle grid (correct answers)
+  - **Light Sea Green**: Words in large dictionary but not in grid
+  - **Light Blue**: Words in small dictionary but not in grid  
+  - **Light Pink**: Invalid words (not in any dictionary)
+- **Complete Word History**: All guessed words are tracked, including invalid attempts
+- **Dictionary Lookup**: Click any found word to open its definition in Merriam-Webster dictionary
 - **Customizable Settings**: Adjust minimum and maximum word lengths (3-10 characters)
 - **Persistent Settings**: Settings are saved in browser localStorage
 - **Score Tracking**: Points awarded based on word length
@@ -17,16 +24,19 @@ A word puzzle game built with Blazor WebAssembly that implements the WordScape g
 1. **Start the Game**: Click "Play WordScape" from the home page or "New Game" in the game
 2. **Form Words**: Click and drag around the letter circle to select letters in sequence
 3. **Submit Words**: Click "Submit" to check if your word is valid
-4. **Find All Words**: Try to find all possible words to complete the puzzle
-5. **Customize**: Use the Settings panel to adjust word length preferences
+4. **View Word History**: All guessed words appear in the Found Words list with color coding
+5. **Look Up Definitions**: Click any word in the Found Words list to see its dictionary definition
+6. **Find All Words**: Try to find all possible words to complete the puzzle
+7. **Customize**: Use the Settings panel to adjust word length preferences
 
 ## Game Rules
 
 - Words must be at least 3 characters long (configurable)
 - Letters can only be used from the available circle
-- Words must be valid dictionary words
+- Words must be valid dictionary words to get colored appropriately
 - Each letter can be used once per word
 - Points are awarded based on word length (length × 10)
+- All guessed words are tracked for your reference
 
 ## Technical Details
 

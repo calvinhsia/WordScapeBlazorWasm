@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WordScapeBlazorWasm</title>
     <base href="/" />
-    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="WordScapeBlazorWasm.styles.css" rel="stylesheet" />
@@ -30,6 +29,10 @@
     <script>
         window.getBoundingClientRect = function (element) {
             return element.getBoundingClientRect();
+        };
+
+        window.openUrl = function (url) {
+            window.open(url, '_blank');
         };
 
         window.convertClientToSVGCoordinates = function (svgElement, clientX, clientY) {

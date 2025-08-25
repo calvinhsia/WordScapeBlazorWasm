@@ -234,6 +234,39 @@ body {
     border-radius: 4px;
     font-weight: bold;
     font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.found-word:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.found-word:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* Word type specific colors - based on original WordScape */
+.found-word.word-in-grid {
+    background-color: #008B8B; /* Dark Cyan - words in puzzle grid */
+    color: white;
+}
+
+.found-word.word-in-large-dict {
+    background-color: #20B2AA; /* Light Sea Green - words in large dictionary */
+    color: black;
+}
+
+.found-word.word-in-small-dict {
+    background-color: #ADD8E6; /* Light Blue - words in small dictionary */
+    color: black;
+}
+
+.found-word.word-not-found {
+    background-color: #FFB6C1; /* Light Pink - words not in any dictionary */
+    color: black;
 }
 
 /* Crossword Grid Styles */

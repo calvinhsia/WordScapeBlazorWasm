@@ -5,12 +5,14 @@ namespace WordScapeBlazorWasm.Services
 {
     public class WordScapeGameService
     {
-        private readonly DictionaryLib.DictionaryLib _dictionary;
+        private readonly DictionaryLib.DictionaryLib _dictionarySmall;
+        private readonly DictionaryLib.DictionaryLib _dictionaryLarge;
         private readonly Random _random;
 
         public WordScapeGameService()
         {
-            _dictionary = new DictionaryLib.DictionaryLib(DictionaryType.Small);
+            _dictionarySmall = new DictionaryLib.DictionaryLib(DictionaryType.Small);
+            _dictionaryLarge = new DictionaryLib.DictionaryLib(DictionaryType.Large);
             // Use fixed seed for consistent debugging/testing results
             _random = new Random(12345);
         }
@@ -366,7 +368,7 @@ namespace WordScapeBlazorWasm.Services
                     if (length > 1) // Only validate sequences longer than 1 letter
                     {
                         string sequence = ExtractHorizontalSequence(grid, sequenceStart, row, length);
-                        if (!_dictionary.IsWord(sequence))
+                        if (!_dictionarySmall.IsWord(sequence))
                         {
                             if (showDebug) Console.WriteLine($"     ❌ Invalid horizontal sequence: '{sequence}' at ({sequenceStart},{row})");
                             return false;
@@ -399,7 +401,7 @@ namespace WordScapeBlazorWasm.Services
                     if (length > 1) // Only validate sequences longer than 1 letter
                     {
                         string sequence = ExtractVerticalSequence(grid, column, sequenceStart, length);
-                        if (!_dictionary.IsWord(sequence))
+                        if (!_dictionarySmall.IsWord(sequence))
                         {
                             if (showDebug) Console.WriteLine($"     ❌ Invalid vertical sequence: '{sequence}' at ({column},{sequenceStart})");
                             return false;
@@ -441,7 +443,7 @@ namespace WordScapeBlazorWasm.Services
                 var placement = kvp.Value;
                 
                 // Skip already found words
-                if (puzzle.FoundWords.Contains(word)) 
+                if (puzzle.FoundWords.Any(fw => fw.Word == word)) 
                 {
                     continue;
                 }
@@ -519,9 +521,9 @@ namespace WordScapeBlazorWasm.Services
                         bool isPartOfFoundWord = false;
                         foreach (var foundWord in puzzle.FoundWords)
                         {
-                            if (puzzle.Grid._dictPlacedWords.TryGetValue(foundWord, out var foundPlacement))
+                            if (puzzle.Grid._dictPlacedWords.TryGetValue(foundWord.Word, out var foundPlacement))
                             {
-                                for (int j = 0; j < foundWord.Length; j++)
+                                for (int j = 0; j < foundWord.Word.Length; j++)
                                 {
                                     int foundX = foundPlacement.IsHoriz ? foundPlacement.nX + j : foundPlacement.nX;
                                     int foundY = foundPlacement.IsHoriz ? foundPlacement.nY : foundPlacement.nY + j;
@@ -595,7 +597,7 @@ namespace WordScapeBlazorWasm.Services
                 
                 foreach (var word in shuffled)
                 {
-                    if (_dictionary.IsWord(word))
+                    if (_dictionarySmall.IsWord(word))
                     {
                         Console.WriteLine($"🎯 Selected good target word: '{word}' (length {length})");
                         return word;
@@ -633,7 +635,7 @@ namespace WordScapeBlazorWasm.Services
             // Filter valid dictionary words and ensure they can be formed from target letters
             var result = validWords.Where(word => 
                 word.Length >= minLength && 
-                _dictionary.IsWord(word) &&
+                _dictionarySmall.IsWord(word) &&
                 CanFormWordFromLetters(word, targetWord))
                 .OrderBy(w => w.Length)
                 .ThenBy(w => w)
@@ -648,7 +650,7 @@ namespace WordScapeBlazorWasm.Services
                 var commonWords = new[] { "THE", "AND", "FOR", "ARE", "BUT", "NOT", "YOU", "ALL", "CAN", "HER", "WAS", "ONE", "HAD", "HAS", "GET", "USE", "MAN", "NEW", "NOW", "OLD", "SEE", "HIM", "TWO", "HOW", "ITS", "WHO", "OIL", "SIT", "SET", "RUN", "EAT", "FAR", "SEA", "EYE", "RED", "TOP", "ARM", "TOO", "END", "WHY", "LET", "TRY" };
                 foreach (var word in commonWords)
                 {
-                    if (word.Length >= minLength && CanFormWordFromLetters(word, targetWord) && _dictionary.IsWord(word))
+                    if (word.Length >= minLength && CanFormWordFromLetters(word, targetWord) && _dictionarySmall.IsWord(word))
                     {
                         result.Add(word);
                         if (result.Count >= 10) break;
@@ -707,37 +709,73 @@ namespace WordScapeBlazorWasm.Services
             return letters;
         }
 
-        public bool IsValidGuess(string guess, PuzzleState puzzle)
+        public FoundWordType ValidateWord(string guess, PuzzleState puzzle)
         {
-            Console.WriteLine($"🔍 Validating guess: '{guess}'");
+            Console.WriteLine($"🔍 Validating word: '{guess}'");
             
             if (string.IsNullOrEmpty(guess) || guess.Length < 3)
             {
                 Console.WriteLine($"❌ Invalid - too short or empty");
-                return false;
+                return FoundWordType.SubWordNotAWord;
             }
 
-            var isInDictionary = _dictionary.IsWord(guess);
             var canFormWord = CanFormWordFromLetters(guess, puzzle.TargetWord);
+            if (!canFormWord)
+            {
+                Console.WriteLine($"❌ Cannot form from target letters");
+                return FoundWordType.SubWordNotAWord;
+            }
+
+            // Check if word is in the puzzle grid (highest priority)
             var isPossible = puzzle.PossibleWords.Contains(guess);
-            
-            Console.WriteLine($"   📚 In dictionary: {isInDictionary}");
-            Console.WriteLine($"   🔤 Can form from letters: {canFormWord}");
-            Console.WriteLine($"   ✅ In possible words: {isPossible}");
-            
-            var result = isInDictionary && canFormWord && isPossible;
-            Console.WriteLine($"   🎯 Final result: {result}");
-            
-            return result;
+            if (isPossible)
+            {
+                Console.WriteLine($"✅ Found in puzzle grid");
+                return FoundWordType.SubWordInGrid;
+            }
+
+            // Check if word is in small dictionary
+            var isInSmallDict = _dictionarySmall.IsWord(guess);
+            if (isInSmallDict)
+            {
+                Console.WriteLine($"📚 Found in small dictionary");
+                return FoundWordType.SubWordNotInGrid;
+            }
+
+            // Check if word is in large dictionary
+            var isInLargeDict = _dictionaryLarge.IsWord(guess);
+            if (isInLargeDict)
+            {
+                Console.WriteLine($"📖 Found in large dictionary");
+                return FoundWordType.SubWordInLargeDictionary;
+            }
+
+            Console.WriteLine($"❌ Not found in any dictionary");
+            return FoundWordType.SubWordNotAWord;
+        }
+
+        public bool IsValidGuess(string guess, PuzzleState puzzle)
+        {
+            var wordType = ValidateWord(guess, puzzle);
+            // Accept words that are in grid or in any dictionary and can be formed
+            return wordType != FoundWordType.SubWordNotAWord;
         }
 
         public bool TryAddWord(string word, PuzzleState puzzle)
         {
-            if (IsValidGuess(word, puzzle) && !puzzle.FoundWords.Contains(word))
+            var wordType = ValidateWord(word, puzzle);
+            if (wordType != FoundWordType.SubWordNotAWord)
             {
-                puzzle.FoundWords.Add(word);
-                ShowWordInGrid(word, puzzle);
-                return true;
+                var foundWord = new FoundWord { Word = word, Type = wordType };
+                if (!puzzle.FoundWords.Any(fw => fw.Word == word))
+                {
+                    puzzle.FoundWords.Add(foundWord);
+                    if (wordType == FoundWordType.SubWordInGrid)
+                    {
+                        ShowWordInGrid(word, puzzle);
+                    }
+                    return true;
+                }
             }
             return false;
         }
