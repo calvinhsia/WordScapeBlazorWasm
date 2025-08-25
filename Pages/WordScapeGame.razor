@@ -99,7 +99,7 @@
                                 @for (int x = 0; x < (_puzzleState?.LegacyGrid?.MaxX ?? 0); x++)
                                 {
                                     var cell = _puzzleState?.LegacyGrid?.Cells?.FirstOrDefault(c => c.X == x && c.Y == y);
-                                    if (cell != null && !cell.IsBlank)
+                                    if (cell is not null && !cell.IsBlank)
                                     {
                                         var localX = x; // capture for lambda
                                         var localY = y; // capture for lambda
@@ -228,8 +228,8 @@
     protected override async Task OnInitializedAsync()
     {
         _settings = await SettingsService.LoadSettingsAsync();
-        if (_settings.MaxWordLength > 9) {
-            _settings.MaxWordLength = 9; // for testing, we'll keep them fast
+        if (_settings.MaxWordLength > 11) {
+            _settings.MaxWordLength = 11; // for testing, we'll keep them fast
         }
         await NewGame();
     }
@@ -246,7 +246,7 @@
                 _puzzleState = await _taskGenNextPuzzle;
                 _taskGenNextPuzzle = null; // Clear the task
                 
-                if (_puzzleState != null)
+                if (_puzzleState is not null)
                 {
                     _message = "";
                     _selectedLetters.Clear();
@@ -313,7 +313,7 @@
             
             _puzzleState = await GameService.GeneratePuzzleAsync(_settings);
             
-            if (_puzzleState != null)
+            if (_puzzleState is not null)
             {
                 if (showProgress)
                 {
@@ -486,7 +486,7 @@
         {
             // Use JavaScript interop to convert client coordinates to SVG coordinates
             var svgCoords = await JSRuntime.InvokeAsync<double[]>("convertClientToSVGCoordinates", letterWheelElement, clientX, clientY);
-            if (svgCoords == null || svgCoords.Length < 2) return -1;
+            if (svgCoords is null || svgCoords.Length < 2) return -1;
             
             var svgX = svgCoords[0];
             var svgY = svgCoords[1];
@@ -600,7 +600,7 @@
         _taskGenNextPuzzle = null;
         
         // Restart background generation with new settings if we have a current puzzle
-        if (_puzzleState != null)
+        if (_puzzleState is not null)
         {
             StartBackgroundPuzzleGeneration();
         }
@@ -635,7 +635,7 @@
         _message = $"Clicked cell at ({x}, {y})";
         StateHasChanged();
         
-        if (_puzzleState == null) 
+        if (_puzzleState is null) 
         {
             _message = "❌ Puzzle state is null";
             StateHasChanged();

@@ -485,7 +485,7 @@ namespace WordScapeBlazorWasm.Services
                     int y = placement.IsHoriz ? placement.nY : placement.nY + i;
                     
                     var cell = puzzle.LegacyGrid.Cells.FirstOrDefault(c => c.X == x && c.Y == y);
-                    if (cell != null)
+                    if (cell is not null)
                     {
                         Console.WriteLine($"   Revealing cell at ({x},{y}) with letter '{word[i]}'");
                         cell.IsRevealed = true;
@@ -515,7 +515,7 @@ namespace WordScapeBlazorWasm.Services
                     int y = placement.IsHoriz ? placement.nY : placement.nY + i;
                     
                     var cell = puzzle.LegacyGrid.Cells.FirstOrDefault(c => c.X == x && c.Y == y);
-                    if (cell != null)
+                    if (cell is not null)
                     {
                         // Check if this cell is part of any found word
                         bool isPartOfFoundWord = false;
@@ -561,7 +561,7 @@ namespace WordScapeBlazorWasm.Services
                     int y = placement.IsHoriz ? placement.nY : placement.nY + i;
                     
                     var cell = puzzle.LegacyGrid.Cells.FirstOrDefault(c => c.X == x && c.Y == y);
-                    if (cell != null && !cell.IsRevealed)
+                    if (cell is not null && !cell.IsRevealed)
                     {
                         wasAlreadyRevealed = false;
                         cell.IsRevealed = true;

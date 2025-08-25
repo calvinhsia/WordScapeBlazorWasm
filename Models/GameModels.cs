@@ -41,7 +41,7 @@ namespace WordScapeBlazorWasm.Models
         {
             get
             {
-                if (_cachedLegacyGrid == null)
+                if (_cachedLegacyGrid is null)
                 {
                     _cachedLegacyGrid = ConvertToLegacyGrid();
                 }
@@ -51,9 +51,9 @@ namespace WordScapeBlazorWasm.Models
         
         private CrosswordGrid ConvertToLegacyGrid()
         {
-            if (Grid == null)
+            if (Grid is null)
                 return new CrosswordGrid { MaxX = 15, MaxY = 15, Cells = new List<GridCell>() };
-            if (Grid == null) 
+            if (Grid is null) 
             {
                 return new CrosswordGrid();
             }

@@ -6,7 +6,7 @@ namespace WordScapeBlazorWasm.Models
     public class WordGenerationParms
     {
         private Random? _random;
-        public Random _Random { get { if (_random == null) { _random = new Random(1); } return _random; } set { _random = value; } }
+        public Random _Random { get { if (_random is null) { _random = new Random(1); } return _random; } set { _random = value; } }
         public int LenTargetWord { get; set; } = 7;
         public int MinSubWordLength { get; set; } = 5;
         public int MaxX { get; set; } = 15;
