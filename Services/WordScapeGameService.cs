@@ -26,12 +26,7 @@ namespace WordScapeBlazorWasm.Services
 
             try
             {
-                // For now, use fallback to ensure the app loads quickly
-                // TODO: Re-enable original source after debugging
-                return await CreateFallbackPuzzleAsync(settings);
-                
-                // Original source implementation (temporarily disabled)
-                /*
+                // Re-enable original source for proper dense grid generation
                 var wordGenerationParms = new WordGenerationParms()
                 {
                     LenTargetWord = settings.MaxWordLength,
@@ -42,6 +37,12 @@ namespace WordScapeBlazorWasm.Services
                 };
 
                 var wordScapePuzzle = await WordScapePuzzle.CreateNextPuzzleTask(wordGenerationParms);
+                
+                if (wordScapePuzzle?.genGrid == null || wordScapePuzzle?.wordContainer?.InitialWord == null)
+                {
+                    throw new InvalidOperationException("Failed to generate puzzle: grid or target word is null");
+                }
+                
                 var genGrid = wordScapePuzzle.genGrid;
                 var targetWord = wordScapePuzzle.wordContainer.InitialWord;
 
@@ -60,7 +61,6 @@ namespace WordScapeBlazorWasm.Services
 
                 Console.WriteLine($"📝 Puzzle created with {possibleWords.Count} possible words");
                 return puzzle;
-                */
             }
             catch (Exception ex)
             {
