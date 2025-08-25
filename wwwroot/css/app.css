@@ -90,7 +90,7 @@ body {
 /* New layout styles */
 .game-layout {
     display: grid;
-    grid-template-columns: 200px 1fr 200px;
+    grid-template-columns: 200px 1fr 300px; /* Increased right sidebar from 200px to 300px */
     gap: 15px;
     margin-top: 0px;
     min-height: 500px;
@@ -100,6 +100,10 @@ body {
     display: flex;
     flex-direction: column;
     gap: 15px;
+}
+
+.right-sidebar {
+    min-height: 600px; /* Ensure right sidebar has enough height */
 }
 
 .center-area {
@@ -159,25 +163,33 @@ body {
 
 .current-word {
     text-align: center;
-    padding: 20px 15px;
+    padding: 15px 10px;
     background: #f8f9fa;
     border-radius: 8px;
     margin-top: 10px;
+    border: 2px solid #e9ecef;
 }
 
 .current-word h4 {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     color: #495057;
-    font-size: 16px;
+    font-size: 14px;
+    font-weight: 600;
 }
 
 .word-display {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: bold;
     color: #007bff;
-    min-height: 30px;
-    padding: 5px;
+    min-height: 25px;
+    padding: 8px;
     border-bottom: 2px solid #007bff;
+    background: white;
+    border-radius: 4px;
+}
+
+.game-message {
+    margin-top: 10px;
 }
 
 .game-message .message {
@@ -185,8 +197,9 @@ body {
     background: #d1ecf1;
     color: #0c5460;
     border-radius: 5px;
-    font-size: 14px;
+    font-size: 12px;
     text-align: center;
+    border: 1px solid #bee5eb;
 }
 
 /* Progress Indicator */
@@ -217,6 +230,40 @@ body {
 .found-words {
     width: 100%;
     max-width: 600px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.found-words h4 {
+    margin-bottom: 10px;
+    color: #495057;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.words-list-container {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #f8f9fa;
+    padding: 10px;
+}
+
+.words-list.multi-column {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 6px;
+    align-items: start;
+}
+
+/* Alternative column layout for narrow screens */
+@media (max-width: 768px) {
+    .words-list.multi-column {
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+        gap: 4px;
+    }
 }
 
 .words-grid {
@@ -531,22 +578,36 @@ body {
     .game-layout {
         grid-template-columns: 1fr;
         grid-template-rows: auto auto auto;
-        gap: 5px;
+        gap: 10px;
         margin-top: -5px;
     }
 
-    .left-sidebar, .right-sidebar {
-        order: 2;
+    .left-sidebar {
+        order: 1; /* Left sidebar first (current word, controls) */
     }
 
     .center-area {
-        order: 1;
+        order: 2; /* Center area second (game board) */
         gap: 3px;
         margin-top: -10px;
     }
 
+    .right-sidebar {
+        order: 3; /* Right sidebar last (found words) */
+        min-height: 300px; /* Shorter on mobile */
+    }
+
     .game-controls {
         flex-direction: row;
+    }
+
+    .words-list-container {
+        max-height: 200px; /* Limit height on mobile */
+    }
+
+    .words-list.multi-column {
+        grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+        gap: 3px;
     }
 
     .words-list {

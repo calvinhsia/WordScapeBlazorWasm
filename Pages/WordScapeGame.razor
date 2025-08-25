@@ -59,19 +59,18 @@
                     </button>
                 </div>
 
-                <!-- Found Words List -->
-                <div class="found-words">
-                    <h4>Found Words</h4>
-                    <div class="words-list">
-                        @foreach (var foundWord in _puzzleState?.FoundWords?.OrderBy(fw => fw.Word.Length).ThenBy(fw => fw.Word) ?? Enumerable.Empty<FoundWord>())
-                        {
-                            <div class="found-word @GetWordCssClass(foundWord.Type)" 
-                                 @onclick="@(() => OpenDictionaryDefinition(foundWord.Word))"
-                                 title="Click to look up definition">
-                                @foundWord.Word
-                            </div>
-                        }
-                    </div>
+                <!-- Current Word Display (moved from right sidebar) -->
+                <div class="current-word">
+                    <h4>Current Word</h4>
+                    <div class="word-display">@_currentWord</div>
+                </div>
+
+                <!-- Game Message (moved from right sidebar) -->
+                <div class="game-message">
+                    @if (!string.IsNullOrEmpty(_message))
+                    {
+                        <div class="message">@_message</div>
+                    }
                 </div>
             </div>
 
@@ -179,15 +178,21 @@
 
             <!-- Right Sidebar -->
             <div class="right-sidebar">
-                <div class="current-word">
-                    <div class="word-display">@_currentWord</div>
-                </div>
-
-                <div class="game-message">
-                    @if (!string.IsNullOrEmpty(_message))
-                    {
-                        <div class="message">@_message</div>
-                    }
+                <!-- Found Words List (moved from left sidebar, now multi-column) -->
+                <div class="found-words">
+                    <h4>Found Words (@(_puzzleState?.FoundWords.Count ?? 0)/@(_puzzleState?.PossibleWords.Count ?? 0))</h4>
+                    <div class="words-list-container">
+                        <div class="words-list multi-column">
+                            @foreach (var foundWord in _puzzleState?.FoundWords?.OrderBy(fw => fw.Word) ?? Enumerable.Empty<FoundWord>())
+                            {
+                                <div class="found-word @GetWordCssClass(foundWord.Type)" 
+                                     @onclick="@(() => OpenDictionaryDefinition(foundWord.Word))"
+                                     title="Click to look up definition">
+                                    @foundWord.Word
+                                </div>
+                            }
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
